@@ -1,0 +1,26 @@
+{
+  "name": "Ny ide",
+  "short_name": "Ny ide",
+  "description": "Tal en idé ind. Sorter den senere.",
+  "start_url": "/ny-ide",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#1c1915",
+  "theme_color": "#c45c26",
+  "lang": "da",
+  "icons": [
+    {
+      "src": "/static/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/static/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
