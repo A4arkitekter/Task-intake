@@ -1,0 +1,5 @@
+# Kun nødvendig med WHISPER_DEVICE=cuda og et NVIDIA-kort.
+# CTranslate2 slår cublas64_12.dll og cuDNN op ad navn, og de følger ikke med faster-whisper.
+# app/transcribe.py lægger mapperne i PATH ved opstart.
+nvidia-cublas-cu12>=12.4
+nvidia-cudnn-cu12>=9,<10

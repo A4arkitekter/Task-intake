@@ -16,6 +16,18 @@ def ensure_icons() -> None:
             _draw_icon(path, size)
 
 
+def ensure_app_icon() -> Path:
+    """Windows-genveje og notifikationer vil have en .ico, ikke en .png."""
+    ico = ICON_DIR / "app.ico"
+    if ico.exists():
+        return ico
+    source = ICON_DIR / "icon-512.png"
+    if not source.exists():
+        _draw_icon(source, 512)
+    Image.open(source).save(ico, format="ICO", sizes=[(16, 16), (32, 32), (48, 48), (256, 256)])
+    return ico
+
+
 def _draw_icon(path: Path, size: int) -> None:
     img = Image.new("RGBA", (size, size), (0, 0, 0, 0))
     draw = ImageDraw.Draw(img)

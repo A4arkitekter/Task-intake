@@ -3,6 +3,7 @@ from __future__ import annotations
 from contextlib import asynccontextmanager
 import logging
 import threading
+from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
 from fastapi import BackgroundTasks, Depends, FastAPI, File, Form, HTTPException, Request, UploadFile
@@ -11,26 +12,60 @@ from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
 
 from app import db
+from app.activity import mark_inbox_seen
 from app.auth import require_user
 from app.config import (
     AUDIO_DIR,
+    DATA_DIR,
     ICON_DIR,
+    INBOX_DIR,
     MAX_AUDIO_BYTES,
     MAX_RECORD_SECONDS,
+    REMIND_AT,
+    REMIND_TO,
     APP_PASSWORD,
     SECRET_KEY,
     STATIC_DIR,
+    WATCH_ENABLED,
     WHISPER_WARMUP,
     ensure_dirs,
     mail_settings,
 )
 from app.icons import ensure_icons
 from app.mailer import compose
+from app.notify import open_inbox_if_unattended
 from app.pipeline import audio_duration_sec, process_capture, rewrite_capture
+from app.remind import start as start_reminder
+from app.winapp import register as register_with_windows
 from app.rewrite import status as rewrite_status
-from app.transcribe import status as whisper_status, warm_up
+from app.transcribe import start_idle_releaser, status as whisper_status, warm_up
+from app.watch import start as start_watcher
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+
+def _setup_logging() -> None:
+    handlers: list[logging.Handler] = [logging.StreamHandler()]
+    try:
+        # Autostart kører uden konsol, så der skal være et spor at læse bagefter.
+        log_dir = DATA_DIR / "logs"
+        log_dir.mkdir(parents=True, exist_ok=True)
+        handlers.append(
+            RotatingFileHandler(
+                log_dir / "app.log",
+                maxBytes=1_000_000,
+                backupCount=3,
+                encoding="utf-8",
+            )
+        )
+    except OSError:
+        pass
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+        handlers=handlers,
+    )
+
+
+_setup_logging()
 logger = logging.getLogger(__name__)
 
 
@@ -39,10 +74,37 @@ async def lifespan(_app: FastAPI):
     ensure_dirs()
     STATIC_DIR.mkdir(parents=True, exist_ok=True)
     ensure_icons()
+    # Giver programmet et navn, Windows anerkender, før den første notifikation skal vises.
+    register_with_windows()
     db.init()
     if WHISPER_WARMUP:
         threading.Thread(target=warm_up, daemon=True, name="whisper-warmup").start()
-    yield
+    watcher = start_watcher() if WATCH_ENABLED else None
+    releaser = start_idle_releaser()
+    reminder = start_reminder()
+    _open_inbox_if_anything_waits()
+    try:
+        yield
+    finally:
+        if watcher is not None:
+            watcher.stop()
+        if releaser is not None:
+            releaser.stop()
+        if reminder is not None:
+            reminder.stop()
+
+
+def _open_inbox_if_anything_waits() -> None:
+    """Bagstopper ved login: en idé fra før ferien skal dukke op af sig selv."""
+    try:
+        waiting = db.list_waiting()
+    except Exception:
+        logger.exception("Kunne ikke se efter ventende idéer")
+        return
+    if not waiting:
+        return
+    logger.info("%s ting venter i indbakken", len(waiting))
+    open_inbox_if_unattended()
 
 
 app = FastAPI(title="Task intake", docs_url=None, redoc_url=None, lifespan=lifespan)
@@ -62,6 +124,11 @@ def health() -> dict:
     return {
         "ok": True,
         "mail": mail_settings(),
+        "inbox_dir": str(INBOX_DIR),
+        "watching": WATCH_ENABLED,
+        "waiting": len(db.list_waiting()),
+        "remind_to": REMIND_TO,
+        "remind_at": REMIND_AT,
         **whisper_status(),
         **rewrite_status(),
     }
@@ -69,12 +136,17 @@ def health() -> dict:
 
 @app.get("/api/me")
 def me(request: Request) -> dict:
-    return {"authenticated": bool(request.session.get("user")), "mail": mail_settings()}
+    return {
+        "authenticated": bool(request.session.get("user")),
+        "mail": mail_settings(),
+        # Optageren i browseren skal kende serverens grænse, ikke gætte sin egen.
+        "max_record_seconds": MAX_RECORD_SECONDS,
+    }
 
 
 @app.post("/api/login")
 def login(request: Request, payload: dict) -> dict:
-    password = str(payload.get("password") or "")
+    password = str(payload.get("password") or "").strip()
     if password != APP_PASSWORD:
         raise HTTPException(status_code=401, detail="Forkert adgangskode")
     request.session["user"] = True
@@ -88,7 +160,12 @@ def logout(request: Request) -> dict:
 
 
 @app.get("/api/inbox")
-def inbox(_: None = Depends(require_user)) -> dict:
+def inbox(visible: bool = True, _: None = Depends(require_user)) -> dict:
+    # En skjult fane henter stadig data, men beviser ikke at nogen kigger. Browsere
+    # struber baggrundsfaner ned til cirka ét kald i minuttet, og det så tidligere ud
+    # præcis som en opmærksom seer — så åbnede indbakken sig aldrig af sig selv.
+    if visible:
+        mark_inbox_seen()
     return {"captures": db.list_inbox(), "mail": mail_settings(), **whisper_status(), **rewrite_status()}
 
 
@@ -124,7 +201,10 @@ async def upload_capture(
     if not data:
         raise HTTPException(status_code=400, detail="Tom optagelse")
     if len(data) > MAX_AUDIO_BYTES:
-        raise HTTPException(status_code=400, detail="Optagelsen er for stor")
+        raise HTTPException(
+            status_code=400,
+            detail=f"Optagelsen er over {MAX_AUDIO_BYTES // (1024 * 1024)} MB",
+        )
 
     mime = audio.content_type or "audio/webm"
     suffix = _suffix_for_mime(mime, audio.filename)
@@ -135,7 +215,10 @@ async def upload_capture(
     duration = audio_duration_sec(dest)
     if duration is not None and duration > MAX_RECORD_SECONDS + 15:
         dest.unlink(missing_ok=True)
-        raise HTTPException(status_code=400, detail="Optagelsen er længere end ét minut")
+        raise HTTPException(
+            status_code=400,
+            detail=f"Optagelsen er længere end {MAX_RECORD_SECONDS // 60} minutter",
+        )
 
     capture = db.create_capture(
         capture_id=capture_id,
@@ -147,6 +230,22 @@ async def upload_capture(
 
     background.add_task(process_capture, capture["id"])
     return {"id": capture["id"], "status": "processing"}
+
+
+@app.post("/api/captures/{capture_id}/retry")
+def retry_capture(capture_id: str, background: BackgroundTasks, _: None = Depends(require_user)) -> dict:
+    capture = db.get_capture(capture_id)
+    if not capture:
+        raise HTTPException(status_code=404, detail="Optagelsen findes ikke")
+    if capture.get("status") != "error":
+        raise HTTPException(status_code=409, detail="Optagelsen fejlede ikke")
+    path = Path(capture.get("audio_path") or "")
+    if not path.is_file():
+        raise HTTPException(status_code=409, detail="Lydfilen findes ikke længere")
+    # Lyden ligger stadig på disken, så en fejl behøver ikke koste idéen.
+    db.update_capture(capture_id, status="processing", error_message=None)
+    background.add_task(process_capture, capture_id)
+    return {"id": capture_id, "status": "processing"}
 
 
 @app.post("/api/captures/{capture_id}/discard")

@@ -4,6 +4,7 @@ import { ensureAuth } from "./login.js";
 let poll = null;
 let selectedId = null;
 let lastHash = "";
+let onVisible = null;
 
 export async function renderInbox(root) {
   document.title = "Indbakke · Indtagelse";
@@ -34,10 +35,18 @@ export async function renderInbox(root) {
   await refresh(root);
   if (poll) clearInterval(poll);
   poll = setInterval(() => refresh(root), 2500);
+  if (onVisible) document.removeEventListener("visibilitychange", onVisible);
+  onVisible = () => {
+    // Browseren struber en skjult fane, så listen kan være et minut gammel.
+    if (document.visibilityState === "visible") refresh(root);
+  };
+  document.addEventListener("visibilitychange", onVisible);
 }
 
 async function refresh(root) {
-  const data = await api("/api/inbox");
+  // Fanen skal kun melde sig som seer, når den faktisk er synlig.
+  const visible = document.visibilityState === "visible" ? 1 : 0;
+  const data = await api(`/api/inbox?visible=${visible}`);
   const typing = ["INPUT", "TEXTAREA"].includes(document.activeElement?.tagName || "");
   const hash = `${selectedId}:${JSON.stringify(data)}`;
   if (typing && lastHash) return;
@@ -91,6 +100,21 @@ async function refresh(root) {
       refresh(root);
     });
   });
+  mount.querySelectorAll("[data-retry-capture]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      button.disabled = true;
+      button.textContent = "Prøver igen…";
+      try {
+        await api(`/api/captures/${button.getAttribute("data-retry-capture")}/retry`, { method: "POST" });
+        lastHash = "";
+        await refresh(root);
+      } catch (error) {
+        button.disabled = false;
+        button.textContent = "Prøv igen";
+        alert(error.message);
+      }
+    });
+  });
   bindCards(mount, root);
 }
 
@@ -112,7 +136,10 @@ function originalPane(capture) {
   }
   if (capture.status === "error") {
     return `<p class="empty">${escapeHtml(capture.error_message || "Behandlingen fejlede.")}</p>
-      <button class="danger" data-discard-capture="${capture.id}" type="button">Smid optagelsen væk</button>`;
+      <div class="card-actions">
+        <button class="primary" data-retry-capture="${capture.id}" type="button">Prøv igen</button>
+        <button class="danger" data-discard-capture="${capture.id}" type="button">Smid optagelsen væk</button>
+      </div>`;
   }
   return `
     <div class="player">

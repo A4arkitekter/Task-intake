@@ -7,3 +7,6 @@ itsdangerous>=2.2.0
 faster-whisper>=1.1.0
 av>=14.0.0
 pillow>=11.0.0
+windows-toasts>=1.3.0; sys_platform == "win32"
+# Sender den daglige oversigt gennem din kørende Outlook, så ingen adgangskode skal gemmes.
+pywin32>=306; sys_platform == "win32"

@@ -1,6 +1,6 @@
 import { api } from "./api.js";
 
-const MAX_SECONDS = 60;
+const FALLBACK_MAX_SECONDS = 600;
 const mimeCandidates = [
   "audio/webm;codecs=opus",
   "audio/webm",
@@ -19,7 +19,7 @@ function mmss(total) {
   return `${minutes}:${seconds}`;
 }
 
-export function renderCapture(root) {
+export function renderCapture(root, me) {
   document.title = "Ny ide";
   document.body.classList.add("capture-mode");
   root.innerHTML = `
@@ -36,12 +36,13 @@ export function renderCapture(root) {
     elapsed: 0,
     sending: false,
     mime: pickMime(),
+    maxSeconds: Number(me?.max_record_seconds) || FALLBACK_MAX_SECONDS,
   };
 
   function paintIdle(message) {
     stage.innerHTML = `
       <h1>Ny ide</h1>
-      <p class="timer">${mmss(0)} / ${mmss(MAX_SECONDS)}</p>
+      <p class="timer">${mmss(0)} / ${mmss(state.maxSeconds)}</p>
       <button class="rec-btn" id="main-btn" type="button">Start</button>
       <p class="hint">${message || "Tryk for at optage. Stop når du er færdig — resten kører af sig selv."}</p>
       ${backLink()}
@@ -53,7 +54,7 @@ export function renderCapture(root) {
   function paintRecording() {
     stage.innerHTML = `
       <h1>Ny ide</h1>
-      <p class="timer" id="timer">${mmss(state.elapsed)} / ${mmss(MAX_SECONDS)}</p>
+      <p class="timer" id="timer">${mmss(state.elapsed)} / ${mmss(state.maxSeconds)}</p>
       <button class="rec-btn live stop" id="main-btn" type="button">Stop</button>
       <p class="hint">Tal frit. Der er ingen titel og ingen mapper her.</p>
     `;
@@ -128,8 +129,8 @@ async function begin(state, paint) {
   state.timer = setInterval(() => {
     state.elapsed += 1;
     const timer = document.querySelector("#timer");
-    if (timer) timer.textContent = `${mmss(state.elapsed)} / ${mmss(MAX_SECONDS)}`;
-    if (state.elapsed >= MAX_SECONDS) stop(state);
+    if (timer) timer.textContent = `${mmss(state.elapsed)} / ${mmss(state.maxSeconds)}`;
+    if (state.elapsed >= state.maxSeconds) stop(state);
   }, 1000);
 }
 

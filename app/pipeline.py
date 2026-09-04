@@ -6,8 +6,9 @@ from pathlib import Path
 import av
 
 from app import db
-from app.config import MAX_DURATION_SLACK
+from app.config import MAX_DURATION_SEC
 from app.extract import extract_proposals
+from app.notify import notify_ready, open_inbox_if_unattended
 from app.transcribe import transcribe_file
 
 logger = logging.getLogger(__name__)
@@ -31,8 +32,8 @@ def process_capture(capture_id: str) -> None:
     path = Path(capture["audio_path"])
     try:
         duration = audio_duration_sec(path)
-        if duration is not None and duration > MAX_DURATION_SLACK:
-            raise RuntimeError(f"Optagelsen er {duration:.0f} s — max er 60 sekunder")
+        if MAX_DURATION_SEC > 0 and duration is not None and duration > MAX_DURATION_SEC:
+            raise RuntimeError(f"Optagelsen er {duration:.0f} s — grænsen er {MAX_DURATION_SEC:.0f} s")
         if duration is not None:
             db.update_capture(capture_id, duration_sec=round(duration, 2))
 
@@ -43,6 +44,8 @@ def process_capture(capture_id: str) -> None:
         db.replace_proposals(capture_id, proposals)
         db.update_capture(capture_id, status="ready", transcript=transcript, error_message=None)
         logger.info("Capture %s klar med %s forslag", capture_id, len(proposals))
+        notify_ready(proposals[0]["title"])
+        open_inbox_if_unattended()
     except Exception as exc:
         logger.exception("Behandling af %s fejlede", capture_id)
         db.update_capture(capture_id, status="error", error_message=str(exc))

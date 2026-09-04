@@ -73,11 +73,64 @@ def init(conn: sqlite3.Connection | None = None) -> None:
                 FOREIGN KEY (capture_id) REFERENCES captures(id) ON DELETE CASCADE
             );
 
+            CREATE TABLE IF NOT EXISTS app_state (
+                key TEXT PRIMARY KEY,
+                value TEXT NOT NULL
+            );
+
             CREATE INDEX IF NOT EXISTS idx_proposals_capture ON proposals(capture_id);
             CREATE INDEX IF NOT EXISTS idx_captures_status ON captures(status);
             """
     )
     con.commit()
+
+
+def get_state(key: str) -> str | None:
+    with cursor() as cur:
+        cur.execute("SELECT value FROM app_state WHERE key = ?", (key,))
+        row = cur.fetchone()
+    return row["value"] if row else None
+
+
+def set_state(key: str, value: str) -> None:
+    with cursor() as cur:
+        cur.execute(
+            """
+            INSERT INTO app_state (key, value) VALUES (?, ?)
+            ON CONFLICT(key) DO UPDATE SET value = excluded.value
+            """,
+            (key, value),
+        )
+
+
+def list_waiting() -> list[dict[str, Any]]:
+    """Alt der venter på dig: kort du ikke har sendt, og optagelser der fejlede.
+
+    Optagelser midt i behandlingen tælles ikke med — de klarer sig selv om et øjeblik.
+    """
+    with cursor() as cur:
+        cur.execute(
+            """
+            SELECT
+                c.id,
+                c.created_at,
+                c.status,
+                c.error_message,
+                (
+                    SELECT p.title FROM proposals p
+                    WHERE p.capture_id = c.id AND p.status = 'pending'
+                    ORDER BY p.sort_order LIMIT 1
+                ) AS title
+            FROM captures c
+            WHERE c.status = 'error'
+               OR EXISTS (
+                    SELECT 1 FROM proposals p
+                    WHERE p.capture_id = c.id AND p.status = 'pending'
+               )
+            ORDER BY c.created_at ASC
+            """
+        )
+        return [dict(row) for row in cur.fetchall()]
 
 
 def row_to_dict(row: sqlite3.Row | None) -> dict[str, Any] | None:

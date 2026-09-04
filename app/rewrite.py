@@ -9,7 +9,7 @@ from typing import Any
 
 import httpx
 
-from app.config import LLM_BASE_URL, LLM_MODEL, LLM_TIMEOUT_SEC
+from app.config import LLM_BASE_URL, LLM_KEEP_ALIVE, LLM_MODEL, LLM_TIMEOUT_SEC
 
 logger = logging.getLogger(__name__)
 
@@ -33,6 +33,21 @@ Eksempel:
 Tekst: Jeg har en idé, der handler om, at vi fremover os, skal sortere vores affald i købnet
 Svar: {"title":"Fremtidig affaldssortering i køkkenet","note":"Vi skal fremover sortere vores affald i køkkenet."}
 """
+
+LONG_NOTE_PROMPT = """\
+Teksten er en lang indtaling. Note skal derfor være et referat på 3-10 sætninger.
+Bevar alle konkrete punkter, navne, tal og datoer. Udelad intet, du ikke selv ville
+kunne gætte. Title skal stadig være én kort overskrift for hele indtalingen.
+"""
+
+# Over denne længde er en note på to sætninger et tab af information, ikke en oprydning.
+LONG_INPUT_CHARS = 800
+
+# Ollamas KV-cache vokser med num_ctx — omkring 0,2 MB per token for en 14b-model.
+# Et 12 GB kort, der også holder Whisper, kan ikke bære mere end dette.
+MAX_CONTEXT = 8192
+# Det der er plads til i MAX_CONTEXT, når systemprompt og svar er trukket fra.
+MAX_TRANSCRIPT_CHARS = 20_000
 
 _lock = threading.Lock()
 _status = "idle"
@@ -115,17 +130,51 @@ def _ensure_ready() -> bool:
             return False
 
 
-def _complete(transcript: str) -> str:
+def context_size(transcript: str) -> int:
+    """Ollama afkorter prompten lydløst ved num_ctx, så en lang indtaling ville miste slutningen."""
+    tokens = (len(SYSTEM_PROMPT) + len(LONG_NOTE_PROMPT) + len(transcript)) // 3
+    needed = tokens + 1024
+    for size in (2048, 4096, MAX_CONTEXT):
+        if needed <= size:
+            return size
+    return MAX_CONTEXT
+
+
+def fit_transcript(transcript: str) -> str:
+    """Er teksten længere end vinduet, forkortes den synligt i stedet for lydløst.
+
+    Begyndelsen og slutningen beholdes, fordi det vigtigste i en indtaling ofte
+    siges allersidst.
+    """
+    if len(transcript) <= MAX_TRANSCRIPT_CHARS:
+        return transcript
+    head = MAX_TRANSCRIPT_CHARS * 2 // 3
+    tail = MAX_TRANSCRIPT_CHARS - head
+    logger.warning(
+        "Transskriptionen er %s tegn. Midten udelades, så slutningen ikke falder ud.",
+        len(transcript),
+    )
+    return f"{transcript[:head]}\n[... midten er udeladt ...]\n{transcript[-tail:]}"
+
+
+def _complete(raw_transcript: str) -> str:
+    transcript = fit_transcript(raw_transcript)
+    long_input = len(transcript) > LONG_INPUT_CHARS
+    messages = [{"role": "system", "content": SYSTEM_PROMPT}]
+    if long_input:
+        messages.append({"role": "system", "content": LONG_NOTE_PROMPT})
+    messages.append({"role": "user", "content": transcript})
     payload = {
         "model": LLM_MODEL,
         "stream": False,
         "format": "json",
-        "keep_alive": "1h",
-        "options": {"temperature": 0.1, "num_predict": 200, "num_ctx": 2048},
-        "messages": [
-            {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": transcript},
-        ],
+        "keep_alive": LLM_KEEP_ALIVE,
+        "options": {
+            "temperature": 0.1,
+            "num_predict": 900 if long_input else 200,
+            "num_ctx": context_size(transcript),
+        },
+        "messages": messages,
     }
     with httpx.Client(timeout=LLM_TIMEOUT_SEC) as client:
         response = client.post(f"{LLM_BASE_URL}/api/chat", json=payload)

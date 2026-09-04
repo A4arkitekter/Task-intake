@@ -4,6 +4,9 @@ import unittest
 from unittest.mock import patch
 
 os.environ["LLM_ENABLED"] = "0"
+os.environ["NOTIFY"] = "0"
+os.environ["WATCH_ENABLED"] = "0"
+os.environ["AUTO_OPEN"] = "0"
 os.environ["APP_PASSWORD"] = "test-pass"
 os.environ["SECRET_KEY"] = "test-secret"
 os.environ["WHISPER_WARMUP"] = "0"

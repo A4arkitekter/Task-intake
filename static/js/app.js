@@ -9,7 +9,7 @@ function route() {
   if (path === "/login") return renderLogin(root);
   if (path === "/ny-ide") {
     return ensureAuth().then((me) => {
-      if (me) renderCapture(root);
+      if (me) renderCapture(root, me);
     });
   }
   return renderInbox(root);

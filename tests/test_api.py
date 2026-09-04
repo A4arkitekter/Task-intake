@@ -9,12 +9,17 @@ os.environ["MAIL_TO"] = "wrike@wrike.com"
 os.environ["MAIL_CC"] = "ep@a4.dk"
 os.environ["MAIL_MARKER"] = "*PODIOWRIKETASKDELETE*"
 os.environ["LLM_ENABLED"] = "0"
+os.environ["NOTIFY"] = "0"
+os.environ["WATCH_ENABLED"] = "0"
+os.environ["AUTO_OPEN"] = "0"
+os.environ["REMIND_ENABLED"] = "0"
 
 _tmp = tempfile.mkdtemp(prefix="intake-test-")
 os.environ["DATA_DIR"] = _tmp
 
 from fastapi.testclient import TestClient
 
+from app import activity
 from app.mailer import build_body, compose, mailto_url
 from app.main import app
 
@@ -71,9 +76,21 @@ class ApiTests(unittest.TestCase):
         self.assertEqual(bad.status_code, 401)
         ok = self.client.post("/api/login", json={"password": "test-pass"})
         self.assertEqual(ok.status_code, 200)
+        padded = self.client.post("/api/login", json={"password": "  test-pass  "})
+        self.assertEqual(padded.status_code, 200)
         inbox = self.client.get("/api/inbox")
         self.assertEqual(inbox.status_code, 200)
         self.assertIsInstance(inbox.json()["captures"], list)
+
+    def test_a_hidden_tab_does_not_count_as_watching(self):
+        # En skjult baggrundsfane henter stadig listen. Talte den som en seer, ville
+        # indbakken aldrig åbne sig selv — og det var netop fejlen.
+        self.client.post("/api/login", json={"password": "test-pass"})
+        activity.reset()
+        self.client.get("/api/inbox?visible=0")
+        self.assertEqual(activity.seconds_since_inbox_seen(), float("inf"))
+        self.client.get("/api/inbox?visible=1")
+        self.assertLess(activity.seconds_since_inbox_seen(), 5)
 
     def test_home_is_spa(self):
         response = self.client.get("/ny-ide")
@@ -177,6 +194,60 @@ class ApiTests(unittest.TestCase):
         ]
         self.assertEqual(len(pending), 1)
         self.assertEqual(pending[0]["title"], "Jeg har en IDTA 4US")
+
+    def test_retry_reruns_a_failed_capture(self):
+        from pathlib import Path
+        from unittest.mock import patch
+
+        from app import db
+
+        self.client.post("/api/login", json={"password": "test-pass"})
+        audio = Path(_tmp) / "fejlet.m4a"
+        audio.write_bytes(b"lyden ligger stadig paa disken")
+        capture = db.create_capture(
+            source="sync",
+            audio_path=str(audio),
+            audio_mime="audio/mp4",
+            duration_sec=5,
+        )
+        db.update_capture(capture["id"], status="error", error_message="GPU var optaget")
+
+        with patch("app.main.process_capture") as worker:
+            response = self.client.post(f"/api/captures/{capture['id']}/retry")
+
+        self.assertEqual(response.status_code, 200, response.text)
+        worker.assert_called_once_with(capture["id"])
+        again = db.get_capture(capture["id"])
+        self.assertEqual(again["status"], "processing")
+        self.assertIsNone(again["error_message"])
+
+    def test_retry_is_refused_when_nothing_failed(self):
+        from app import db
+
+        self.client.post("/api/login", json={"password": "test-pass"})
+        capture = db.create_capture(
+            source="pwa",
+            audio_path="missing.webm",
+            audio_mime="audio/webm",
+            duration_sec=1,
+        )
+        db.update_capture(capture["id"], status="ready", transcript="noget")
+        response = self.client.post(f"/api/captures/{capture['id']}/retry")
+        self.assertEqual(response.status_code, 409)
+
+    def test_retry_is_refused_when_the_audio_is_gone(self):
+        from app import db
+
+        self.client.post("/api/login", json={"password": "test-pass"})
+        capture = db.create_capture(
+            source="sync",
+            audio_path="findes-ikke.m4a",
+            audio_mime="audio/mp4",
+            duration_sec=1,
+        )
+        db.update_capture(capture["id"], status="error", error_message="fejl")
+        response = self.client.post(f"/api/captures/{capture['id']}/retry")
+        self.assertEqual(response.status_code, 409)
 
     def test_manifest(self):
         response = self.client.get("/manifest.webmanifest")
