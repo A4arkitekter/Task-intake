@@ -2,7 +2,9 @@ from __future__ import annotations
 
 from contextlib import asynccontextmanager
 import logging
+import os
 import threading
+import webbrowser
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
@@ -12,6 +14,7 @@ from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
 
 from app import db
+from app import update as program_update
 from app.activity import mark_inbox_seen
 from app.auth import require_user
 from app.config import (
@@ -24,6 +27,7 @@ from app.config import (
     REMIND_AT,
     REMIND_TO,
     APP_PASSWORD,
+    APP_URL,
     SECRET_KEY,
     STATIC_DIR,
     WATCH_ENABLED,
@@ -83,6 +87,7 @@ async def lifespan(_app: FastAPI):
     releaser = start_idle_releaser()
     reminder = start_reminder()
     _open_inbox_if_anything_waits()
+    _maybe_open_browser()
     try:
         yield
     finally:
@@ -92,6 +97,19 @@ async def lifespan(_app: FastAPI):
             releaser.stop()
         if reminder is not None:
             reminder.stop()
+
+
+def _maybe_open_browser() -> None:
+    flag = os.environ.get("OPEN_BROWSER", "").strip().lower()
+    if flag not in {"1", "true", "yes", "on"}:
+        return
+    url = APP_URL if "://" in APP_URL else f"http://127.0.0.1:8000/"
+    threading.Timer(1.2, lambda: webbrowser.open(url)).start()
+
+
+def _is_loopback(request: Request) -> bool:
+    host = (request.client.host if request.client else "") or ""
+    return host in {"127.0.0.1", "::1", "testclient"}
 
 
 def _open_inbox_if_anything_waits() -> None:
@@ -123,6 +141,8 @@ app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 def health() -> dict:
     return {
         "ok": True,
+        "instance_id": program_update.SERVER_INSTANCE_ID,
+        "update_action_token": program_update.UPDATE_ACTION_TOKEN,
         "mail": mail_settings(),
         "inbox_dir": str(INBOX_DIR),
         "watching": WATCH_ENABLED,
@@ -131,6 +151,74 @@ def health() -> dict:
         "remind_at": REMIND_AT,
         **whisper_status(),
         **rewrite_status(),
+    }
+
+
+@app.get("/api/update/status")
+def api_update_status() -> dict:
+    return {"ok": True, "update": program_update.check_update_status()}
+
+
+@app.get("/api/update/result")
+def api_update_result():
+    try:
+        result = program_update.read_update_result()
+    except (OSError, ValueError):
+        return JSONResponse(
+            {
+                "ok": False,
+                "error": "Resultatet af opdateringen kunne ikke læses. Kør SYSTEMTJEK.bat.",
+            },
+            status_code=500,
+        )
+    return {"ok": True, "result": result}
+
+
+@app.post("/api/update/apply")
+def api_apply_update(request: Request):
+    if not _is_loopback(request):
+        return JSONResponse(
+            {"ok": False, "error": "Opdatering kan kun startes på denne computer."},
+            status_code=403,
+        )
+    if request.headers.get("X-Update-Token") != program_update.UPDATE_ACTION_TOKEN:
+        return JSONResponse(
+            {"ok": False, "error": "Opdateringsanmodningen blev afvist."},
+            status_code=403,
+        )
+    if program_update.update_shutdown_requested.is_set():
+        return {"ok": True, "message": "Opdateringen er allerede startet."}
+    if db.has_processing_capture():
+        return JSONResponse(
+            {
+                "ok": False,
+                "error": "Vent, til den igangværende optagelse er færdig, og prøv igen.",
+            },
+            status_code=409,
+        )
+
+    status = program_update.check_update_status(force=True)
+    if not status.get("supported"):
+        return JSONResponse(
+            {
+                "ok": False,
+                "error": status.get("message") or "Denne installation kan ikke opdateres fra browseren.",
+            },
+            status_code=409,
+        )
+    if not status.get("ok"):
+        return JSONResponse({"ok": False, "error": status.get("message")}, status_code=503)
+    if not status.get("update_available"):
+        return {"ok": True, "message": "Programmet er allerede opdateret."}
+
+    program_update.update_shutdown_requested.set()
+    logger.info("Browseropdatering accepteret version=%s", status.get("latest_version"))
+    program_update.request_program_update_shutdown()
+    return {
+        "ok": True,
+        "restarting": True,
+        "message": "Opdateringen starter. Programmet genstarter automatisk.",
+        "instance_id": program_update.SERVER_INSTANCE_ID,
     }
 
 
@@ -197,6 +285,11 @@ async def upload_capture(
     source: str = Form("pwa"),
     _: None = Depends(require_user),
 ) -> dict:
+    if program_update.update_shutdown_requested.is_set():
+        raise HTTPException(
+            status_code=503,
+            detail="Programmet er ved at opdatere. Vent på den automatiske genstart.",
+        )
     data = await audio.read()
     if not data:
         raise HTTPException(status_code=400, detail="Tom optagelse")
@@ -234,6 +327,11 @@ async def upload_capture(
 
 @app.post("/api/captures/{capture_id}/retry")
 def retry_capture(capture_id: str, background: BackgroundTasks, _: None = Depends(require_user)) -> dict:
+    if program_update.update_shutdown_requested.is_set():
+        raise HTTPException(
+            status_code=503,
+            detail="Programmet er ved at opdatere. Vent på den automatiske genstart.",
+        )
     capture = db.get_capture(capture_id)
     if not capture:
         raise HTTPException(status_code=404, detail="Optagelsen findes ikke")

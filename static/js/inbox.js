@@ -5,6 +5,10 @@ let poll = null;
 let selectedId = null;
 let lastHash = "";
 let onVisible = null;
+let updateActionToken = "";
+let serverInstanceId = "";
+let updateOutcomeShown = false;
+const UPDATE_RESULT_KEY = "indtagelse-update-result";
 
 export async function renderInbox(root) {
   document.title = "Indbakke · Indtagelse";
@@ -22,6 +26,13 @@ export async function renderInbox(root) {
           <button class="linkish" id="logout" type="button">Log ud</button>
         </div>
       </header>
+      <div id="update-box" class="update-box" hidden>
+        <strong id="update-title">En opdatering er klar</strong>
+        <div id="update-message" class="muted">Programmet kan opdateres og genstartes automatisk.</div>
+        <div class="row">
+          <button id="update-btn" class="primary" type="button">Opdatér og genstart</button>
+        </div>
+      </div>
       <div id="whisper-banner"></div>
       <div class="inbox" id="inbox">
         <p class="empty" style="padding:2rem">Henter indbakke…</p>
@@ -32,7 +43,9 @@ export async function renderInbox(root) {
     await api("/api/logout", { method: "POST" });
     location.href = "/login";
   });
+  root.querySelector("#update-btn").addEventListener("click", applyUpdate);
   await refresh(root);
+  await initUpdateBanner();
   if (poll) clearInterval(poll);
   poll = setInterval(() => refresh(root), 2500);
   if (onVisible) document.removeEventListener("visibilitychange", onVisible);
@@ -265,4 +278,132 @@ function escapeHtml(value) {
 
 function escapeAttr(value) {
   return escapeHtml(value).replaceAll('"', "&quot;");
+}
+
+function showUpdateBox(title, message, kind = "info", showButton = false) {
+  const box = document.getElementById("update-box");
+  const titleEl = document.getElementById("update-title");
+  const messageEl = document.getElementById("update-message");
+  const button = document.getElementById("update-btn");
+  if (!box || !titleEl || !messageEl || !button) return;
+  box.hidden = false;
+  box.classList.toggle("success", kind === "success");
+  box.classList.toggle("error", kind === "error");
+  titleEl.textContent = title;
+  messageEl.textContent = message;
+  button.hidden = !showButton;
+  button.disabled = false;
+}
+
+function showPreviousUpdateResult() {
+  let result = null;
+  try {
+    result = JSON.parse(sessionStorage.getItem(UPDATE_RESULT_KEY) || "null");
+    sessionStorage.removeItem(UPDATE_RESULT_KEY);
+  } catch (_ignored) { }
+  if (!result) return;
+  const resultMessages = {
+    updated: "Den nyeste godkendte version er installeret og startet.",
+    update_failed: "Opdateringen blev ikke gennemført. Den tidligere version er startet igen. Kør SYSTEMTJEK.bat, hvis fejlen gentager sig.",
+    setup_failed: "Programfilerne blev opdateret, men installationen kunne ikke tilpasses automatisk. Kør SETUP.bat og derefter START.bat.",
+  };
+  updateOutcomeShown = true;
+  showUpdateBox(
+    result.ok ? "Programmet er opdateret" : "Opdateringen blev ikke gennemført",
+    resultMessages[result.code] || result.message || (result.ok ? "Den nyeste version er klar." : "Kør SYSTEMTJEK.bat, og send fejlrapport.zip til IT."),
+    result.ok ? "success" : "error",
+    !result.ok
+  );
+}
+
+async function initUpdateBanner() {
+  try {
+    const health = await fetch("/api/health", { cache: "no-store" }).then((resp) => resp.json());
+    serverInstanceId = health.instance_id || serverInstanceId;
+    updateActionToken = health.update_action_token || updateActionToken;
+  } catch (_ignored) { }
+  showPreviousUpdateResult();
+  try {
+    const resp = await fetch("/api/update/status", { cache: "no-store" });
+    const data = await resp.json();
+    const update = data.update || {};
+    if (update.update_available && !updateOutcomeShown) {
+      showUpdateBox(
+        "En godkendt opdatering er klar",
+        "Klik på knappen. Programmet lukker kortvarigt og starter automatisk igen.",
+        "info",
+        true
+      );
+    } else if (!updateOutcomeShown) {
+      const box = document.getElementById("update-box");
+      if (box) box.hidden = true;
+    }
+  } catch (_ignored) {
+    // En utilgængelig NAS må ikke forstyrre den daglige brug.
+  }
+}
+
+async function fetchWithTimeout(url, options = {}, timeoutMs = 3500) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...options, signal: controller.signal });
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+async function waitForUpdatedServer(previousInstanceId) {
+  const deadline = Date.now() + 30 * 60 * 1000;
+  await new Promise((resolve) => setTimeout(resolve, 1800));
+  while (Date.now() < deadline) {
+    try {
+      const healthResp = await fetchWithTimeout("/api/health", { cache: "no-store" });
+      const health = await healthResp.json();
+      if (healthResp.ok && health.instance_id && health.instance_id !== previousInstanceId) {
+        let result = { ok: true, message: "Den nyeste version er klar." };
+        try {
+          const resultResp = await fetchWithTimeout("/api/update/result", { cache: "no-store" });
+          const resultData = await resultResp.json();
+          if (resultData.result) result = resultData.result;
+        } catch (_ignored) { }
+        try { sessionStorage.setItem(UPDATE_RESULT_KEY, JSON.stringify(result)); } catch (_ignored) { }
+        window.location.reload();
+        return;
+      }
+    } catch (_ignored) { }
+    await new Promise((resolve) => setTimeout(resolve, 1800));
+  }
+  showUpdateBox(
+    "Opdateringen tager længere end forventet",
+    "Kør SYSTEMTJEK.bat, hvis programmet ikke starter igen.",
+    "error",
+    false
+  );
+}
+
+async function applyUpdate() {
+  const button = document.getElementById("update-btn");
+  if (button) button.disabled = true;
+  showUpdateBox(
+    "Opdaterer programmet",
+    "Vent. Browseren finder automatisk programmet igen efter genstarten.",
+    "info",
+    false
+  );
+  try {
+    const resp = await fetch("/api/update/apply", {
+      method: "POST",
+      headers: { "X-Update-Token": updateActionToken },
+    });
+    const data = await resp.json();
+    if (!resp.ok || !data.ok) throw new Error(data.error || data.detail || "Opdateringen kunne ikke startes.");
+    if (!data.restarting) {
+      showUpdateBox("Programmet er opdateret", data.message, "success", false);
+      return;
+    }
+    await waitForUpdatedServer(data.instance_id || serverInstanceId);
+  } catch (err) {
+    showUpdateBox("Opdateringen kunne ikke startes", err.message, "error", true);
+  }
 }

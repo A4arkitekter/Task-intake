@@ -104,6 +104,33 @@ a.primary {
   font-size: 0.92rem;
 }
 
+.update-box {
+  margin: 0.75rem 1.25rem 0;
+  padding: 0.85rem 1rem;
+  border-radius: 9px;
+  background: #eaf3f8;
+  border: 1px solid #9fc5dc;
+}
+
+.update-box.success {
+  background: #eef7ee;
+  border-color: #bfd8bf;
+}
+
+.update-box.error {
+  background: #fff0f1;
+  border-color: #e5a6ae;
+  color: #8a0015;
+}
+
+.update-box .row {
+  margin-top: 0.55rem;
+}
+
+.update-box[hidden] {
+  display: none;
+}
+
 .inbox {
   display: grid;
   grid-template-columns: minmax(220px, 280px) minmax(0, 1.1fr) minmax(280px, 380px);

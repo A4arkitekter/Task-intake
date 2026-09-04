@@ -1,0 +1,7 @@
+{
+  "schema": 1,
+  "manifestSchema": 1,
+  "whisperModel": "large-v3",
+  "whisperRepo": "Systran/faster-whisper-large-v3",
+  "ollamaModel": "qwen2.5:14b"
+}

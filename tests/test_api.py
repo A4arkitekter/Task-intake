@@ -254,6 +254,105 @@ class ApiTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn("Ny ide", response.text)
 
+    def test_health_exposes_instance_id(self):
+        from app import update as program_update
+
+        response = self.client.get("/api/health")
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertTrue(data["ok"])
+        self.assertEqual(data["instance_id"], program_update.SERVER_INSTANCE_ID)
+        self.assertEqual(data["update_action_token"], program_update.UPDATE_ACTION_TOKEN)
+
+
+class UpdateApiTests(unittest.TestCase):
+    def setUp(self):
+        from app import db
+        from app import update as program_update
+
+        self.client = TestClient(app)
+        program_update.update_shutdown_requested.clear()
+        with db.cursor() as cur:
+            cur.execute("UPDATE captures SET status = 'ready' WHERE status = 'processing'")
+
+    def tearDown(self):
+        from app import update as program_update
+
+        program_update.update_shutdown_requested.clear()
+
+    def test_browser_update_status_is_exposed(self):
+        from unittest.mock import patch
+
+        fake = {
+            "ok": True,
+            "supported": True,
+            "update_available": True,
+            "latest_version": "abc123",
+        }
+        with patch("app.update.check_update_status", return_value=fake):
+            response = self.client.get("/api/update/status")
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.json()["update"]["update_available"])
+
+    def test_browser_update_request_stops_server_only_when_no_job_is_active(self):
+        from unittest.mock import patch
+
+        from app import update as program_update
+
+        fake = {
+            "ok": True,
+            "supported": True,
+            "update_available": True,
+            "latest_version": "abc123",
+        }
+        stopped = []
+        with patch("app.update.check_update_status", return_value=fake), patch(
+            "app.update.request_program_update_shutdown",
+            side_effect=lambda: stopped.append(True),
+        ):
+            response = self.client.post(
+                "/api/update/apply",
+                headers={"X-Update-Token": program_update.UPDATE_ACTION_TOKEN},
+            )
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.json()["restarting"])
+        self.assertEqual(stopped, [True])
+
+    def test_browser_update_is_rejected_during_processing(self):
+        from unittest.mock import patch
+
+        from app import db
+        from app import update as program_update
+
+        db.create_capture(
+            source="pwa",
+            audio_path="busy.webm",
+            audio_mime="audio/webm",
+            duration_sec=1,
+        )
+        fake = {"ok": True, "supported": True, "update_available": True}
+        with patch("app.update.check_update_status", return_value=fake):
+            response = self.client.post(
+                "/api/update/apply",
+                headers={"X-Update-Token": program_update.UPDATE_ACTION_TOKEN},
+            )
+        self.assertEqual(response.status_code, 409)
+        self.assertIn("optagelse", response.json()["error"])
+
+    def test_browser_update_is_rejected_without_token(self):
+        response = self.client.post("/api/update/apply")
+        self.assertEqual(response.status_code, 403)
+
+    def test_developer_git_checkout_hides_updates(self):
+        from unittest.mock import patch
+
+        from app.update import check_update_status
+
+        with patch("app.update.is_developer_checkout", return_value=True):
+            status = check_update_status()
+        self.assertFalse(status["supported"])
+        self.assertFalse(status["update_available"])
+
 
 if __name__ == "__main__":
     unittest.main()

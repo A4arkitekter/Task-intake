@@ -174,6 +174,12 @@ def create_capture(
     return item
 
 
+def has_processing_capture() -> bool:
+    with cursor() as cur:
+        cur.execute("SELECT 1 FROM captures WHERE status = 'processing' LIMIT 1")
+        return cur.fetchone() is not None
+
+
 def get_capture(capture_id: str) -> dict[str, Any] | None:
     with cursor() as cur:
         cur.execute("SELECT * FROM captures WHERE id = ?", (capture_id,))

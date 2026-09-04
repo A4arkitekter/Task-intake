@@ -1,0 +1,10 @@
+{
+  "schema": 1,
+  "pythonVersion": "3.13.15",
+  "minimumFreeDiskGiB": 20,
+  "pipVersion": "26.2.1",
+  "setuptoolsVersion": "80.9.0",
+  "wheelVersion": "0.45.1",
+  "nasRuntime": "\\\\a4diskstation4\\A4software\\task-intake\\runtime",
+  "nasUpdates": "\\\\a4diskstation4\\A4software\\task-intake\\updates"
+}

@@ -2,6 +2,8 @@
 
 Tal en idé ind på telefonen. Sorter den ved computeren. Godkendte kort åbner en Outlook-mail til Wrike.
 
+Kollegainstallation (IT): se [01-START-HER.md](01-START-HER.md). Pak GitHub-ZIP ud i `C:\apps\task-intake`, kopiér `runtime` fra NAS, kør `SETUP.bat` og `SYSTEMTJEK.bat`. Opdateringer kommer bagefter via knappen i indbakken — kollegaen har ikke GitHub-adgang.
+
 ## Sådan kører du det
 
 1. Kopiér `.env.example` til `.env` og sæt `APP_PASSWORD` og `SECRET_KEY`.

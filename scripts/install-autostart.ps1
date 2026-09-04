@@ -1,16 +1,20 @@
 # Registrerer en planlagt opgave, så indtagelsen starter ved login uden et vindue.
+# Autostart skal pege på Start-Indtagelse.ps1. Ellers kan opdateringsknappen ikke genstarte.
 # Kør som dig selv, ikke som administrator.
 $ErrorActionPreference = "Stop"
 
 $repo = (Resolve-Path "$PSScriptRoot\..").Path
-$pythonw = Join-Path $repo ".venv\Scripts\pythonw.exe"
+$starter = Join-Path $repo "Start-Indtagelse.ps1"
 $taskName = "Task-intake"
 
-if (-not (Test-Path $pythonw)) {
-    Write-Error "Mangler $pythonw. Opret .venv og kør pip install -r requirements.txt først."
+if (-not (Test-Path -LiteralPath $starter -PathType Leaf)) {
+    Write-Error "Mangler $starter."
 }
 
-$action = New-ScheduledTaskAction -Execute $pythonw -Argument "-m app" -WorkingDirectory $repo
+$action = New-ScheduledTaskAction `
+    -Execute (Join-Path $PSHOME "powershell.exe") `
+    -Argument "-NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File `"$starter`" -NoBrowser" `
+    -WorkingDirectory $repo
 $trigger = New-ScheduledTaskTrigger -AtLogOn -User $env:USERNAME
 $settings = New-ScheduledTaskSettingsSet `
     -MultipleInstances IgnoreNew `
