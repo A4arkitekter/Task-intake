@@ -186,3 +186,23 @@ ConnectionResetError: [WinError 10054] En eksisterende forbindelse blev tvangsaf
 2026-09-04 12:33:52,269 INFO app.notify: Viste notifikation: Ternede bukser på møder
 2026-09-04 12:33:52,269 INFO app.notify: Sprang vindue over: indbakken blev set for 0 s siden
 2026-09-04 12:38:55,040 INFO app.transcribe: Frigav Whisper fra cuda efter tomgang
+2026-09-04 12:51:00,497 ERROR asyncio: Exception in callback _ProactorBasePipeTransport._call_connection_lost()
+handle: <Handle _ProactorBasePipeTransport._call_connection_lost()>
+Traceback (most recent call last):
+  File "C:\Users\ep\AppData\Local\Programs\Python\Python313\Lib\asyncio\events.py", line 89, in _run
+    self._context.run(self._callback, *self._args)
+    ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\ep\AppData\Local\Programs\Python\Python313\Lib\asyncio\proactor_events.py", line 166, in _call_connection_lost
+    self._sock.shutdown(socket.SHUT_RDWR)
+    ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^
+ConnectionResetError: [WinError 10054] En eksisterende forbindelse blev tvangsafbrudt af en ekstern vært
+2026-09-04 12:51:00,554 ERROR asyncio: Exception in callback _ProactorBasePipeTransport._call_connection_lost()
+handle: <Handle _ProactorBasePipeTransport._call_connection_lost()>
+Traceback (most recent call last):
+  File "C:\Users\ep\AppData\Local\Programs\Python\Python313\Lib\asyncio\events.py", line 89, in _run
+    self._context.run(self._callback, *self._args)
+    ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\ep\AppData\Local\Programs\Python\Python313\Lib\asyncio\proactor_events.py", line 166, in _call_connection_lost
+    self._sock.shutdown(socket.SHUT_RDWR)
+    ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^
+ConnectionResetError: [WinError 10054] En eksisterende forbindelse blev tvangsafbrudt af en ekstern vært
