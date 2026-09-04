@@ -159,3 +159,30 @@ ConnectionResetError: [WinError 10054] En eksisterende forbindelse blev tvangsaf
 2026-09-04 12:16:37,385 INFO app.pipeline: Capture 301527d56975f9e7fa4f690c52f94f3f klar med 1 forslag
 2026-09-04 12:16:37,442 INFO app.notify: Viste notifikation: Implementer salgsmodul i IT-system
 2026-09-04 12:16:37,443 INFO app.notify: Sprang vindue over: indbakken blev set for 0 s siden
+2026-09-04 12:21:48,960 INFO app.transcribe: Frigav Whisper fra cuda efter tomgang
+2026-09-04 12:24:48,341 INFO app.watch: Hentede 2026_09_04_12_24_14.mp3 ind som 4ad21af5f7f3b524fbc764c9acb4e23b
+2026-09-04 12:24:48,346 INFO app.transcribe: Indlæser Whisper-model large-v3 (cuda/int8_float16)
+2026-09-04 12:24:48,478 INFO httpx: HTTP Request: GET https://huggingface.co/api/models/Systran/faster-whisper-large-v3/revision/main "HTTP/1.1 200 OK"
+2026-09-04 12:24:54,269 INFO faster_whisper: Processing audio with duration 00:01.000
+2026-09-04 12:24:54,667 INFO app.transcribe: Whisper er klar på cuda
+2026-09-04 12:24:54,695 INFO faster_whisper: Processing audio with duration 00:04.859
+2026-09-04 12:24:54,702 INFO faster_whisper: VAD filter removed 00:00.688 of audio
+2026-09-04 12:25:02,366 INFO httpx: HTTP Request: POST http://127.0.0.1:11434/api/chat "HTTP/1.1 200 OK"
+2026-09-04 12:25:02,367 INFO app.rewrite: LLM-kort: Video-bevormeddelelser
+2026-09-04 12:25:02,371 INFO app.pipeline: Capture 4ad21af5f7f3b524fbc764c9acb4e23b klar med 1 forslag
+2026-09-04 12:25:02,376 INFO app.notify: Viste notifikation: Video-bevormeddelelser
+2026-09-04 12:25:02,376 INFO app.notify: Sprang vindue over: indbakken blev set for 0 s siden
+2026-09-04 12:30:24,776 INFO app.transcribe: Frigav Whisper fra cuda efter tomgang
+2026-09-04 12:33:33,062 INFO app.watch: Hentede 2026_09_04_12_32_52.mp3 ind som 7f08f9c9346c368677423fa24a1ac2fd
+2026-09-04 12:33:33,069 INFO app.transcribe: Indlæser Whisper-model large-v3 (cuda/int8_float16)
+2026-09-04 12:33:33,238 INFO httpx: HTTP Request: GET https://huggingface.co/api/models/Systran/faster-whisper-large-v3/revision/main "HTTP/1.1 200 OK"
+2026-09-04 12:33:41,884 INFO faster_whisper: Processing audio with duration 00:01.000
+2026-09-04 12:33:42,415 INFO app.transcribe: Whisper er klar på cuda
+2026-09-04 12:33:42,467 INFO faster_whisper: Processing audio with duration 00:07.079
+2026-09-04 12:33:42,486 INFO faster_whisper: VAD filter removed 00:00.304 of audio
+2026-09-04 12:33:52,255 INFO httpx: HTTP Request: POST http://127.0.0.1:11434/api/chat "HTTP/1.1 200 OK"
+2026-09-04 12:33:52,255 INFO app.rewrite: LLM-kort: Ternede bukser på møder
+2026-09-04 12:33:52,260 INFO app.pipeline: Capture 7f08f9c9346c368677423fa24a1ac2fd klar med 1 forslag
+2026-09-04 12:33:52,269 INFO app.notify: Viste notifikation: Ternede bukser på møder
+2026-09-04 12:33:52,269 INFO app.notify: Sprang vindue over: indbakken blev set for 0 s siden
+2026-09-04 12:38:55,040 INFO app.transcribe: Frigav Whisper fra cuda efter tomgang
