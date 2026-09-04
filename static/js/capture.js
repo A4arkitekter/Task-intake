@@ -34,6 +34,7 @@ export function renderCapture(root) {
     chunks: [],
     timer: null,
     elapsed: 0,
+    sending: false,
     mime: pickMime(),
   };
 
@@ -43,6 +44,7 @@ export function renderCapture(root) {
       <p class="timer">${mmss(0)} / ${mmss(MAX_SECONDS)}</p>
       <button class="rec-btn" id="main-btn" type="button">Start</button>
       <p class="hint">${message || "Tryk for at optage. Stop når du er færdig — resten kører af sig selv."}</p>
+      ${backLink()}
       ${installHint()}
     `;
     stage.querySelector("#main-btn").addEventListener("click", () => begin(state, paint));
@@ -63,6 +65,7 @@ export function renderCapture(root) {
       <h1>Ny ide</h1>
       <p class="timer">${label}</p>
       <button class="rec-btn" type="button" disabled>…</button>
+      ${backLink()}
     `;
   }
 
@@ -72,6 +75,7 @@ export function renderCapture(root) {
         <h1>Sendt</h1>
         <p>Optagelsen ligger i indbakken på computeren. Du kan lukke telefonen.</p>
         <button class="primary" id="again" type="button">Endnu en idé</button>
+        <a class="ghost" href="/">Til indbakken</a>
       </div>
     `;
     stage.querySelector("#again").addEventListener("click", () => {
@@ -94,6 +98,10 @@ export function renderCapture(root) {
   });
 }
 
+function backLink() {
+  return `<a class="capture-back" href="/">Til indbakken</a>`;
+}
+
 function installHint() {
   const standalone = window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone;
   if (standalone) return "";
@@ -112,8 +120,9 @@ async function begin(state, paint) {
   state.recorder.addEventListener("dataavailable", (event) => {
     if (event.data && event.data.size) state.chunks.push(event.data);
   });
-  state.recorder.addEventListener("stop", () => onStop(state, paint));
+  state.recorder.addEventListener("stop", () => onStop(state, paint), { once: true });
   state.elapsed = 0;
+  state.sending = false;
   state.recorder.start(250);
   paint("recording");
   state.timer = setInterval(() => {
@@ -137,9 +146,12 @@ function stop(state) {
 }
 
 async function onStop(state, paint) {
+  if (state.sending) return;
+  state.sending = true;
   const blob = new Blob(state.chunks, { type: state.recorder?.mimeType || state.mime || "audio/webm" });
   cleanup(state);
   if (!blob.size) {
+    state.sending = false;
     paint("idle", "Ingen lyd blev fanget. Prøv igen.");
     return;
   }
@@ -152,6 +164,7 @@ async function onStop(state, paint) {
     await api("/api/captures", { method: "POST", body });
     paint("done");
   } catch (error) {
+    state.sending = false;
     paint("idle", error.message || "Kunne ikke sende. Prøv igen.");
   }
 }

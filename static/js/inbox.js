@@ -39,18 +39,21 @@ export async function renderInbox(root) {
 async function refresh(root) {
   const data = await api("/api/inbox");
   const typing = ["INPUT", "TEXTAREA"].includes(document.activeElement?.tagName || "");
-  const hash = JSON.stringify(data);
+  const hash = `${selectedId}:${JSON.stringify(data)}`;
   if (typing && lastHash) return;
   const banner = root.querySelector("#whisper-banner");
-  if (banner) {
-    if (data.whisper === "loading") {
-      banner.innerHTML = `<div class="banner">Whisper indlæses første gang (lokal model, ~500 MB). Nye optagelser venter i kø.</div>`;
-    } else if (data.whisper === "error") {
-      banner.innerHTML = `<div class="banner">Whisper kunne ikke starte: ${escapeHtml(data.error || "")}</div>`;
-    } else {
-      banner.innerHTML = "";
+    if (banner) {
+      const parts = [];
+      if (data.whisper === "loading") {
+        parts.push(`<div class="banner">Whisper indlæses første gang (lokal model, ~500 MB). Nye optagelser venter i kø.</div>`);
+      } else if (data.whisper === "error") {
+        parts.push(`<div class="banner">Whisper kunne ikke starte: ${escapeHtml(data.error || "")}</div>`);
+      }
+      if (data.rewrite === "unavailable" || data.rewrite === "error") {
+        parts.push(`<div class="banner">Overskrifter bruger rå tekst, indtil Ollama kører (${escapeHtml(data.rewrite_model || "qwen2.5:14b")}). ${escapeHtml(data.rewrite_error || "")}</div>`);
+      }
+      banner.innerHTML = parts.join("");
     }
-  }
   if (hash === lastHash) return;
   lastHash = hash;
   const captures = data.captures || [];
@@ -63,6 +66,7 @@ async function refresh(root) {
   mount.innerHTML = `
     <section class="col">
       <h2>Usorteret</h2>
+      <p class="col-hint">Optagelser du endnu ikke har sendt til Wrike. Klik en for at se den til højre.</p>
       ${captures.length ? captureList(captures) : `<p class="empty">Ingen idéer i indbakken. Tryk Ny ide på telefonen.</p>`}
     </section>
     <section class="col">
@@ -95,6 +99,7 @@ function captureList(captures) {
     <button type="button" class="capture-item ${item.id === selectedId ? "active" : ""}" data-capture="${item.id}">
       <div class="when">${formatWhen(item.created_at)}</div>
       <div class="preview">${escapeHtml(previewText(item))}</div>
+      ${rawSnippet(item) ? `<div class="sub">${escapeHtml(rawSnippet(item))}</div>` : ""}
       ${item.status === "processing" ? `<div class="status-pill">Behandler</div>` : ""}
       ${item.status === "error" ? `<div class="status-pill">Fejl</div>` : ""}
     </button>
@@ -103,7 +108,7 @@ function captureList(captures) {
 
 function originalPane(capture) {
   if (capture.status === "processing") {
-    return `<p class="empty">Transskriberer med lokal Whisper…</p>`;
+    return `<p class="empty">Transskriberer og skriver overskrift…</p>`;
   }
   if (capture.status === "error") {
     return `<p class="empty">${escapeHtml(capture.error_message || "Behandlingen fejlede.")}</p>
@@ -122,7 +127,7 @@ function originalPane(capture) {
 }
 
 function proposalPane(capture) {
-  const pending = (capture.proposals || []).filter((item) => item.status === "pending");
+  const pending = (capture.proposals || []).filter((item) => item.status === "pending").slice(0, 1);
   const sent = (capture.proposals || []).filter((item) => item.status === "sent");
   if (capture.status !== "ready") return "";
   if (!pending.length && !sent.length) {
@@ -151,6 +156,7 @@ function cardHtml(item) {
       <textarea data-note>${escapeHtml(item.note)}</textarea>
       <div class="card-actions">
         <button class="primary" data-approve type="button">Åbn i Outlook</button>
+        <button class="ghost" data-rewrite type="button">Genskab overskrift</button>
         <button class="danger" data-discard type="button">Smid væk</button>
       </div>
     </article>
@@ -175,6 +181,22 @@ function bindCards(mount, root) {
       await api(`/api/proposals/${id}/discard`, { method: "POST" });
       refresh(root);
     });
+    const rewriteBtn = card.querySelector("[data-rewrite]");
+    if (rewriteBtn) {
+      rewriteBtn.addEventListener("click", async () => {
+        rewriteBtn.disabled = true;
+        rewriteBtn.textContent = "Skriver overskrift…";
+        try {
+          await api(`/api/captures/${selectedId}/rewrite`, { method: "POST" });
+          lastHash = "";
+          await refresh(root);
+        } catch (error) {
+          rewriteBtn.disabled = false;
+          rewriteBtn.textContent = "Genskab overskrift";
+          alert(error.message);
+        }
+      });
+    }
     card.querySelector("[data-approve]").addEventListener("click", async () => {
       const approve = card.querySelector("[data-approve]");
       approve.disabled = true;
@@ -196,8 +218,15 @@ function bindCards(mount, root) {
 function previewText(capture) {
   if (capture.status === "processing") return "På vej…";
   if (capture.status === "error") return capture.error_message || "Fejl";
-  const first = (capture.proposals || []).find((item) => item.status === "pending");
-  return first?.title || capture.transcript || "Optagelse";
+  const pending = (capture.proposals || []).find((item) => item.status === "pending");
+  return pending?.title || "Optagelse";
+}
+
+function rawSnippet(capture) {
+  if (capture.status !== "ready") return "";
+  const text = (capture.transcript || "").trim();
+  if (!text) return "";
+  return text.length > 70 ? `${text.slice(0, 70)}…` : text;
 }
 
 function escapeHtml(value) {

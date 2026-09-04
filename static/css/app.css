@@ -150,6 +150,24 @@ a.primary {
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
+  font-weight: 600;
+}
+
+.capture-item .sub {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  margin-top: 0.25rem;
+  font-size: 0.84rem;
+  color: var(--muted);
+}
+
+.col-hint {
+  margin: -0.5rem 0 0.85rem;
+  color: var(--muted);
+  font-size: 0.85rem;
+  line-height: 1.4;
 }
 
 .status-pill {
@@ -310,6 +328,21 @@ body.capture-mode {
   margin-top: 1.6rem;
   color: #cbbba8;
   line-height: 1.45;
+}
+
+.capture-back {
+  display: inline-block;
+  margin-top: 1.2rem;
+  color: #cbbba8;
+  font-size: 0.92rem;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.done-card .ghost {
+  display: inline-flex;
+  margin-left: 0.5rem;
+  text-decoration: none;
 }
 
 .install-hint {

@@ -157,7 +157,36 @@ def list_inbox() -> list[dict[str, Any]]:
     for capture in captures:
         assert capture is not None
         capture["proposals"] = list_proposals(capture["id"])
+        collapse_extra_pending(capture)
     return captures  # type: ignore[return-value]
+
+
+def collapse_extra_pending(capture: dict[str, Any]) -> None:
+    """One recording must never show more than one pending card."""
+    pending = [p for p in capture.get("proposals") or [] if p.get("status") == "pending"]
+    if len(pending) <= 1:
+        return
+    for extra in pending[1:]:
+        update_proposal(extra["id"], status="discarded")
+    capture["proposals"] = list_proposals(capture["id"])
+
+
+def replace_pending_proposals(capture_id: str, proposals: list[dict[str, str]]) -> list[dict[str, Any]]:
+    pending = [item for item in list_proposals(capture_id) if item.get("status") == "pending"]
+    cards = proposals[:1]
+    if not cards:
+        for extra in pending:
+            update_proposal(extra["id"], status="discarded")
+        return []
+    title = cards[0]["title"]
+    note = cards[0].get("note", "")
+    if pending:
+        update_proposal(pending[0]["id"], title=title, note=note)
+        for extra in pending[1:]:
+            update_proposal(extra["id"], status="discarded")
+        updated = get_proposal(pending[0]["id"])
+        return [updated] if updated else []
+    return replace_proposals(capture_id, cards)
 
 
 def list_proposals(capture_id: str) -> list[dict[str, Any]]:

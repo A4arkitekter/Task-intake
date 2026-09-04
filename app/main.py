@@ -26,7 +26,8 @@ from app.config import (
 )
 from app.icons import ensure_icons
 from app.mailer import compose
-from app.pipeline import audio_duration_sec, process_capture
+from app.pipeline import audio_duration_sec, process_capture, rewrite_capture
+from app.rewrite import status as rewrite_status
 from app.transcribe import status as whisper_status, warm_up
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
@@ -62,6 +63,7 @@ def health() -> dict:
         "ok": True,
         "mail": mail_settings(),
         **whisper_status(),
+        **rewrite_status(),
     }
 
 
@@ -87,7 +89,7 @@ def logout(request: Request) -> dict:
 
 @app.get("/api/inbox")
 def inbox(_: None = Depends(require_user)) -> dict:
-    return {"captures": db.list_inbox(), "mail": mail_settings(), **whisper_status()}
+    return {"captures": db.list_inbox(), "mail": mail_settings(), **whisper_status(), **rewrite_status()}
 
 
 @app.get("/api/captures/{capture_id}")
@@ -154,6 +156,17 @@ def discard_capture(capture_id: str, _: None = Depends(require_user)) -> dict:
         raise HTTPException(status_code=404, detail="Optagelsen findes ikke")
     db.discard_pending_for_capture(capture_id)
     return {"ok": True}
+
+
+@app.post("/api/captures/{capture_id}/rewrite")
+def rewrite_existing(capture_id: str, _: None = Depends(require_user)) -> dict:
+    capture = db.get_capture(capture_id)
+    if not capture:
+        raise HTTPException(status_code=404, detail="Optagelsen findes ikke")
+    try:
+        return rewrite_capture(capture_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
 
 
 @app.patch("/api/proposals/{proposal_id}")

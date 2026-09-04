@@ -1,4 +1,4 @@
-const CACHE = "intake-v2";
+const CACHE = "intake-v5";
 const PRECACHE = ["/", "/ny-ide", "/login", "/static/css/app.css", "/static/js/app.js", "/static/js/api.js", "/static/js/inbox.js", "/static/js/capture.js", "/static/js/login.js"];
 
 self.addEventListener("install", (event) => {

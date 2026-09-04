@@ -31,6 +31,11 @@ MAIL_TO = os.getenv("MAIL_TO", "wrike@wrike.com").strip()
 MAIL_CC = os.getenv("MAIL_CC", "ep@a4.dk").strip()
 MAIL_MARKER = os.getenv("MAIL_MARKER", "*PODIOWRIKETASKDELETE*").strip()
 
+LLM_ENABLED = os.getenv("LLM_ENABLED", "1").lower() not in {"0", "false", "no"}
+LLM_BASE_URL = os.getenv("LLM_BASE_URL", "http://127.0.0.1:11434").rstrip("/")
+LLM_MODEL = os.getenv("LLM_MODEL", "qwen2.5:14b").strip()
+LLM_TIMEOUT_SEC = float(os.getenv("LLM_TIMEOUT_SEC", "90"))
+
 
 def ensure_dirs() -> None:
     AUDIO_DIR.mkdir(parents=True, exist_ok=True)

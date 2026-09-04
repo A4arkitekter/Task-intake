@@ -8,6 +8,7 @@ os.environ["SECRET_KEY"] = "test-secret"
 os.environ["MAIL_TO"] = "wrike@wrike.com"
 os.environ["MAIL_CC"] = "ep@a4.dk"
 os.environ["MAIL_MARKER"] = "*PODIOWRIKETASKDELETE*"
+os.environ["LLM_ENABLED"] = "0"
 
 _tmp = tempfile.mkdtemp(prefix="intake-test-")
 os.environ["DATA_DIR"] = _tmp
@@ -72,7 +73,7 @@ class ApiTests(unittest.TestCase):
         self.assertEqual(ok.status_code, 200)
         inbox = self.client.get("/api/inbox")
         self.assertEqual(inbox.status_code, 200)
-        self.assertEqual(inbox.json()["captures"], [])
+        self.assertIsInstance(inbox.json()["captures"], list)
 
     def test_home_is_spa(self):
         response = self.client.get("/ny-ide")
@@ -106,6 +107,76 @@ class ApiTests(unittest.TestCase):
         self.assertIn(b"wrike@wrike.com", eml.content)
         self.assertIn(b"ep@a4.dk", eml.content)
         self.assertIn(b"PODIOWRIKETASKDELETE", eml.content)
+
+    def test_rewrite_updates_pending_card(self):
+        from unittest.mock import patch
+
+        from app import db
+
+        self.client.post("/api/login", json={"password": "test-pass"})
+        capture = db.create_capture(
+            source="pwa",
+            audio_path="missing.webm",
+            audio_mime="audio/webm",
+            duration_sec=3,
+        )
+        db.update_capture(
+            capture["id"],
+            status="ready",
+            transcript="Jeg har en idé, der handler om, at vi fremover os, skal sortere vores affald i købnet",
+        )
+        db.replace_proposals(
+            capture["id"],
+            [{"title": "Jeg har en idé, der handler om", "note": "rå tekst"}],
+        )
+        with patch(
+            "app.extract.rewrite_idea",
+            return_value={
+                "title": "Fremtidig affaldssortering i køkkenet",
+                "note": "Vi skal fremover sortere vores affald i køkkenet.",
+            },
+        ):
+            response = self.client.post(f"/api/captures/{capture['id']}/rewrite")
+        self.assertEqual(response.status_code, 200, response.text)
+        pending = [p for p in response.json()["proposals"] if p["status"] == "pending"]
+        self.assertEqual(len(pending), 1)
+        self.assertEqual(pending[0]["title"], "Fremtidig affaldssortering i køkkenet")
+        self.assertIn("køkkenet", pending[0]["note"])
+
+    def test_inbox_collapses_extra_proposals(self):
+        from app import db
+
+        self.client.post("/api/login", json={"password": "test-pass"})
+        capture = db.create_capture(
+            source="pwa",
+            audio_path="missing.webm",
+            audio_mime="audio/webm",
+            duration_sec=3,
+        )
+        transcript = (
+            "Jeg har en IDTA 4US. Vi skal fremover have dashboards til alle mulige ting."
+        )
+        db.update_capture(capture["id"], status="ready", transcript=transcript)
+        db.replace_proposals(
+            capture["id"],
+            [
+                {"title": "Jeg har en IDTA 4US", "note": "Jeg har en IDTA 4US."},
+                {
+                    "title": "Vi skal fremover have dashboards til alle",
+                    "note": "Vi skal fremover have dashboards til alle mulige ting.",
+                },
+            ],
+        )
+        inbox = self.client.get("/api/inbox")
+        self.assertEqual(inbox.status_code, 200)
+        self.assertEqual(len(inbox.json()["captures"]), 1)
+        pending = [
+            p
+            for p in inbox.json()["captures"][0]["proposals"]
+            if p["status"] == "pending"
+        ]
+        self.assertEqual(len(pending), 1)
+        self.assertEqual(pending[0]["title"], "Jeg har en IDTA 4US")
 
     def test_manifest(self):
         response = self.client.get("/manifest.webmanifest")
