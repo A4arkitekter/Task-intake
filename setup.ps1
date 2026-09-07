@@ -136,10 +136,22 @@ function Write-ColleagueEnv([bool]$UseGpu) {
     $password = New-Secret 12
     $secret = New-Secret 40
     $inbox = Join-Path $env:USERPROFILE "Dropbox\Apps\ASRRecordings"
-    $mail = "kollega@a4.dk"
+    $mail = ""
     if (-not $NonInteractive) {
-        $typed = Read-Host "Din arbejdmail (bruges til Wrike-cc og den daglige rykker)"
-        if ($typed.Trim()) { $mail = $typed.Trim() }
+        Write-Host ""
+        Write-Host "Optagelser hentes fra denne mappe (ASR Voice Recorder / Dropbox):" -ForegroundColor Cyan
+        Write-Host "  $inbox"
+        $inboxTyped = Read-Host "Tryk Enter for at bruge den, eller skriv en anden sti"
+        if ($inboxTyped.Trim()) { $inbox = $inboxTyped.Trim().Trim('"') }
+        do {
+            $mail = (Read-Host "Din arbejdmail (kopi på Wrike-mails og den daglige rykker)").Trim()
+            if ($mail -notmatch '^[^@\s]+@[^@\s]+\.[^@\s]+$') {
+                Write-Host "Skriv en gyldig mailadresse, for eksempel navn@a4.dk." -ForegroundColor Yellow
+                $mail = ""
+            }
+        } while (-not $mail)
+    } else {
+        $mail = "kollega@a4.dk"
     }
     $device = if ($UseGpu) { "cuda" } else { "cpu" }
     $compute = if ($UseGpu) { "int8_float16" } else { "int8" }

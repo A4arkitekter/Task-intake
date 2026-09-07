@@ -20,9 +20,12 @@ export async function renderInbox(root) {
   root.innerHTML = `
     <div class="screen">
       <header class="topbar">
-        <a class="brand" href="/">Indtagelse</a>
-        <div>
-          <a class="ghost" href="/ny-ide">Ny ide</a>
+        <a class="brand brand-on-dark" href="/">
+          <img class="brand-logo" src="/static/brand/a4-logo.svg" alt="A4" />
+          <span class="brand-product">Indtagelse</span>
+        </a>
+        <div class="topbar-actions">
+          <a class="primary" href="/ny-ide">Ny ide</a>
           <button class="linkish" id="logout" type="button">Log ud</button>
         </div>
       </header>
@@ -244,7 +247,7 @@ function bindCards(mount, root) {
         await save();
         const payload = await api(`/api/proposals/${id}/approve`, { method: "POST" });
         await refresh(root);
-        if (payload.mailto) {
+        if (!payload.outlook && payload.mailto) {
           location.href = payload.mailto;
         }
       } catch (error) {

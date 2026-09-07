@@ -41,6 +41,7 @@ export function renderCapture(root, me) {
 
   function paintIdle(message) {
     stage.innerHTML = `
+      <img class="capture-logo" src="/static/brand/a4-logo.svg" alt="A4" />
       <h1>Ny ide</h1>
       <p class="timer">${mmss(0)} / ${mmss(state.maxSeconds)}</p>
       <button class="rec-btn" id="main-btn" type="button">Start</button>
@@ -53,6 +54,7 @@ export function renderCapture(root, me) {
 
   function paintRecording() {
     stage.innerHTML = `
+      <img class="capture-logo" src="/static/brand/a4-logo.svg" alt="A4" />
       <h1>Ny ide</h1>
       <p class="timer" id="timer">${mmss(state.elapsed)} / ${mmss(state.maxSeconds)}</p>
       <button class="rec-btn live stop" id="main-btn" type="button">Stop</button>
@@ -63,6 +65,7 @@ export function renderCapture(root, me) {
 
   function paintBusy(label) {
     stage.innerHTML = `
+      <img class="capture-logo" src="/static/brand/a4-logo.svg" alt="A4" />
       <h1>Ny ide</h1>
       <p class="timer">${label}</p>
       <button class="rec-btn" type="button" disabled>…</button>

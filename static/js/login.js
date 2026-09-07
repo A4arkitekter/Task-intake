@@ -7,13 +7,17 @@ export function renderLogin(root) {
   document.body.classList.remove("capture-mode");
   root.innerHTML = `
     <div class="login-wrap">
-      <form class="login-card" id="login-form">
-        <h1>Indtagelse</h1>
-        <p>Kun til dig. Samme kode på telefon og computer.</p>
-        <input type="password" name="password" placeholder="Adgangskode" autocomplete="current-password" required />
-        <div class="err" id="login-err"></div>
-        <button class="primary" type="submit">Log ind</button>
-      </form>
+      <div>
+        <form class="login-card" id="login-form">
+          <img class="login-logo" src="/static/brand/a4-logo.svg" alt="A4" />
+          <h1>Indtagelse</h1>
+          <p>Kun til dig. Samme kode på telefon og computer.</p>
+          <input type="password" name="password" placeholder="Adgangskode" autocomplete="current-password" required />
+          <div class="err" id="login-err"></div>
+          <button class="primary" type="submit">Log ind</button>
+        </form>
+        <p class="site-foot">A4 arkitekter og ingeniører</p>
+      </div>
     </div>
   `;
   const form = root.querySelector("#login-form");

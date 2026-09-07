@@ -17,6 +17,8 @@ os.environ["REMIND_ENABLED"] = "0"
 _tmp = tempfile.mkdtemp(prefix="intake-test-")
 os.environ["DATA_DIR"] = _tmp
 
+from unittest.mock import patch
+
 from fastapi.testclient import TestClient
 
 from app import activity
@@ -56,11 +58,19 @@ class MailerTests(unittest.TestCase):
         self.assertIn("Cc: ep@a4.dk", payload["eml"])
         self.assertIn("Subject: Ringe til Martin", payload["eml"])
         self.assertIn("*PODIOWRIKETASKDELETE*", payload["eml"])
+        self.assertIn("Importance: high", payload["eml"])
+        self.assertIn("X-Priority: 1", payload["eml"])
+        self.assertFalse(payload["outlook"])
 
 
 class ApiTests(unittest.TestCase):
     def setUp(self):
         self.client = TestClient(app)
+        self._outlook = patch("app.mailer.open_outlook_draft", return_value=True)
+        self._outlook.start()
+
+    def tearDown(self):
+        self._outlook.stop()
 
     def test_health(self):
         response = self.client.get("/api/health")
@@ -119,6 +129,8 @@ class ApiTests(unittest.TestCase):
         self.assertTrue(data["mailto"].startswith("mailto:wrike@wrike.com?"))
         self.assertIn("cc=ep%40a4.dk", data["mailto"])
         self.assertIn("*PODIOWRIKETASKDELETE*", data["body"])
+        self.assertTrue(data["outlook"])
+        self.assertEqual(data["importance"], "high")
         eml = self.client.get(f"/api/proposals/{cards[0]['id']}/eml")
         self.assertEqual(eml.status_code, 200)
         self.assertIn(b"wrike@wrike.com", eml.content)

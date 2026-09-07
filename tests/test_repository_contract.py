@@ -79,6 +79,14 @@ class RepositoryContractTests(unittest.TestCase):
         script = (ROOT / "SETUP.bat").read_text(encoding="utf-8-sig")
         self.assertIn("Eksisterende runtime, .env og data bevares", script)
 
+    def test_setup_asks_for_inbox_path_and_work_email(self):
+        script = (ROOT / "setup.ps1").read_text(encoding="utf-8-sig")
+        self.assertIn("Optagelser hentes fra denne mappe", script)
+        self.assertIn("Dropbox\\Apps\\ASRRecordings", script)
+        self.assertIn("Tryk Enter for at bruge den, eller skriv en anden sti", script)
+        self.assertIn("Din arbejdmail", script)
+        self.assertIn("gyldig mailadresse", script)
+
     def test_updater_refuses_to_run_directly_from_a_network_share(self):
         script = (ROOT / "Update-Intake.ps1").read_text(encoding="utf-8-sig")
         self.assertIn('$PSScriptRoot.StartsWith("\\\\")', script)

@@ -11,10 +11,15 @@ $requiredFiles = @(
     "Test-GitContents.ps1", "Test-InstallState.ps1", "Test-RuntimeManifest.ps1",
     "New-RuntimeManifest.ps1",
     "install-contract.json", "runtime-contract.json",
-    "requirements.txt", "requirements-lock.txt", "requirements-gpu.txt",
+    "requirements.txt", "requirements-lock.txt", "requirements-gpu.txt", "requirements-dev.txt",
     "tools/Install-Helpers.ps1",
     "docs/source/KOLLEGA-START.md",
-    "01-START-HER.md"
+    "docs/source/INSTALLATIONSVEJLEDNING.md",
+    "docs/source/BRUGERVEJLEDNING.md",
+    "01-START-HER.md",
+    "INSTALLATIONSVEJLEDNING.pdf",
+    "BRUGERVEJLEDNING.pdf",
+    "tools/generate_guides_pdf.py"
 )
 
 $forbiddenPatterns = @(

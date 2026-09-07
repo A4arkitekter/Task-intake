@@ -4,23 +4,20 @@ from PIL import Image, ImageDraw
 
 from app.config import ICON_DIR, ensure_dirs
 
-ACCENT = (196, 92, 38, 255)
+ACCENT = (108, 154, 149, 255)
 PAPER = (255, 255, 255, 255)
+INK = (17, 17, 17, 255)
 
 
 def ensure_icons() -> None:
     ensure_dirs()
     for size in (192, 512):
-        path = ICON_DIR / f"icon-{size}.png"
-        if not path.exists():
-            _draw_icon(path, size)
+        _draw_icon(ICON_DIR / f"icon-{size}.png", size)
 
 
 def ensure_app_icon() -> Path:
     """Windows-genveje og notifikationer vil have en .ico, ikke en .png."""
     ico = ICON_DIR / "app.ico"
-    if ico.exists():
-        return ico
     source = ICON_DIR / "icon-512.png"
     if not source.exists():
         _draw_icon(source, 512)
@@ -31,7 +28,13 @@ def ensure_app_icon() -> Path:
 def _draw_icon(path: Path, size: int) -> None:
     img = Image.new("RGBA", (size, size), (0, 0, 0, 0))
     draw = ImageDraw.Draw(img)
-    draw.rounded_rectangle((0, 0, size - 1, size - 1), radius=size * 0.22, fill=ACCENT)
+    draw.rounded_rectangle((0, 0, size - 1, size - 1), radius=size * 0.08, fill=INK)
+    pad = size * 0.08
+    draw.rounded_rectangle(
+        (pad, pad, size - 1 - pad, size - 1 - pad),
+        radius=size * 0.04,
+        fill=ACCENT,
+    )
 
     cx, cy = size / 2, size * 0.46
     mic_w = size * 0.18

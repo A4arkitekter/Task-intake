@@ -407,7 +407,7 @@ def approve_proposal(proposal_id: str, _: None = Depends(require_user)) -> dict:
     if proposal["status"] != "pending":
         raise HTTPException(status_code=409, detail="Forslaget er allerede behandlet")
 
-    payload = _compose_proposal(proposal)
+    payload = _compose_proposal(proposal, open_outlook=True)
     db.update_proposal(proposal_id, status="sent", wrike_task_id=None, wrike_url=None)
     updated = db.get_proposal(proposal_id)
     assert updated is not None
@@ -435,12 +435,13 @@ def proposal_eml(proposal_id: str, _: None = Depends(require_user)) -> Response:
     )
 
 
-def _compose_proposal(proposal: dict) -> dict:
+def _compose_proposal(proposal: dict, *, open_outlook: bool = False) -> dict:
     capture = db.get_capture(proposal["capture_id"])
     return compose(
         title=proposal["title"],
         note=proposal["note"],
         transcript=(capture or {}).get("transcript") or "",
+        open_outlook=open_outlook,
     )
 
 
