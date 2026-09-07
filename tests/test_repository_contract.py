@@ -133,6 +133,49 @@ class RepositoryContractTests(unittest.TestCase):
         self.assertIn("Du skal ikke skrive ollama", script)
         self.assertNotIn("ollama pull", script)
         self.assertNotIn(".Source list", script)
+        helpers = (ROOT / "tools" / "Install-Helpers.ps1").read_text(encoding="utf-8-sig")
+        self.assertIn("Copy-OllamaModelsFromRuntime", helpers)
+        self.assertIn("Merge-DirectoryContents", helpers)
+        self.assertNotIn(
+            'Copy-Item -LiteralPath $modelSource -Destination $modelDest',
+            (ROOT / "setup.ps1").read_text(encoding="utf-8-sig"),
+        )
+
+    def test_ollama_model_copy_merges_into_existing_models_dir(self):
+        helpers = str(ROOT / "tools" / "Install-Helpers.ps1").replace("'", "''")
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp = Path(tmp)
+            project = tmp / "app"
+            blobs = project / "runtime" / "ollama-models" / "blobs"
+            blobs.mkdir(parents=True)
+            (blobs / "sha256-abc").write_bytes(b"model")
+            home = tmp / "home"
+            models = home / ".ollama" / "models"
+            models.mkdir(parents=True)
+            (models / "keep.txt").write_text("x", encoding="utf-8")
+            nested = models / "ollama-models" / "blobs"
+            nested.mkdir(parents=True)
+            (nested / "sha256-old").write_bytes(b"old")
+            project_ps = str(project).replace("'", "''")
+            home_ps = str(home).replace("'", "''")
+            command = (
+                f"$env:USERPROFILE = '{home_ps}'; "
+                f". '{helpers}'; "
+                f"$r = Copy-OllamaModelsFromRuntime '{project_ps}'; "
+                "Write-Output $r"
+            )
+            result = subprocess.run(
+                ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", command],
+                cwd=ROOT,
+                capture_output=True,
+                timeout=30,
+            )
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(result.stdout.decode("utf-8", "replace").strip(), "ok")
+            self.assertTrue((models / "blobs" / "sha256-abc").is_file())
+            self.assertTrue((models / "blobs" / "sha256-old").is_file())
+            self.assertTrue((models / "keep.txt").is_file())
+            self.assertFalse((models / "ollama-models").exists())
 
     def test_updater_refuses_to_run_directly_from_a_network_share(self):
         script = (ROOT / "Update-Intake.ps1").read_text(encoding="utf-8-sig")

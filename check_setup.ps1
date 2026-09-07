@@ -78,15 +78,10 @@ if (-not $ollamaExe) {
         if ($path -and (Test-Path -LiteralPath $path -PathType Leaf)) { $ollamaExe = $path; break }
     }
 }
-$ollamaBlobs = Join-Path $env:USERPROFILE ".ollama\models\blobs"
-$ollamaHasModel = $false
-if (Test-Path -LiteralPath $ollamaBlobs -PathType Container) {
-    $ollamaHasModel = [bool](Get-ChildItem -LiteralPath $ollamaBlobs -File -ErrorAction SilentlyContinue | Select-Object -First 1)
-}
 if ($ollamaExe) {
     Ok "Ollama er installeret"
-    if ($ollamaHasModel) { Ok "Ollama-modellen ligger lokalt" }
-    else { Warn "Ollama-modellen mangler i $env:USERPROFILE\.ollama\models. Kopiér runtime\ollama-models, eller kør SETUP.bat igen." }
+    if (Test-OllamaBlobsPresent) { Ok "Ollama-modellen ligger lokalt" }
+    else { Warn "Ollama-modellen mangler. Kopiér runtime\ollama-models fra NAS ind i programmets runtime-mappe, og kør SETUP.bat igen." }
 } else {
     Warn "Ollama mangler. Overskrifter falder tilbage til rå Whisper-tekst, indtil den er installeret."
 }

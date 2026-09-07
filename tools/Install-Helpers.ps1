@@ -67,3 +67,57 @@ function Get-NvidiaGpuName {
     } catch { }
     return $null
 }
+
+function Get-OllamaModelsDir {
+    return Join-Path $env:USERPROFILE ".ollama\models"
+}
+
+function Test-OllamaBlobsPresent {
+    param([string]$ModelsDir = (Get-OllamaModelsDir))
+    foreach ($blobs in @(
+        (Join-Path $ModelsDir "blobs"),
+        (Join-Path $ModelsDir "ollama-models\blobs"),
+        (Join-Path $ModelsDir "models\blobs")
+    )) {
+        if (-not (Test-Path -LiteralPath $blobs -PathType Container)) { continue }
+        if (Get-ChildItem -LiteralPath $blobs -File -ErrorAction SilentlyContinue | Select-Object -First 1) {
+            return $true
+        }
+    }
+    return $false
+}
+
+function Merge-DirectoryContents([string]$Source, [string]$Dest) {
+    New-Item -ItemType Directory -Path $Dest -Force | Out-Null
+    Get-ChildItem -LiteralPath $Source -Force -ErrorAction SilentlyContinue | ForEach-Object {
+        $target = Join-Path $Dest $_.Name
+        if ($_.PSIsContainer) {
+            Merge-DirectoryContents -Source $_.FullName -Dest $target
+        } else {
+            Copy-Item -LiteralPath $_.FullName -Destination $target -Force
+        }
+    }
+}
+
+function Copy-OllamaModelsFromRuntime([string]$ProjectRoot) {
+    $sourceRoot = Join-Path $ProjectRoot "runtime\ollama-models"
+    if (-not (Test-Path -LiteralPath $sourceRoot -PathType Container)) {
+        return "missing-source"
+    }
+    $sourceModels = $sourceRoot
+    if (-not (Test-Path -LiteralPath (Join-Path $sourceRoot "blobs") -PathType Container)) {
+        $inner = Join-Path $sourceRoot "models"
+        if (Test-Path -LiteralPath (Join-Path $inner "blobs") -PathType Container) {
+            $sourceModels = $inner
+        }
+    }
+    $dest = Get-OllamaModelsDir
+    Merge-DirectoryContents -Source $sourceModels -Dest $dest
+    $nested = Join-Path $dest "ollama-models"
+    if (Test-Path -LiteralPath (Join-Path $nested "blobs") -PathType Container) {
+        Merge-DirectoryContents -Source $nested -Dest $dest
+        Remove-Item -LiteralPath $nested -Recurse -Force -ErrorAction SilentlyContinue
+    }
+    if (Test-OllamaBlobsPresent $dest) { return "ok" }
+    return "copy-failed"
+}
