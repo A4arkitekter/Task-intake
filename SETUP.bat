@@ -17,6 +17,10 @@ echo VED EN OPDATERING:
 echo   Koer kun SETUP.bat, hvis startfilen beder om det.
 echo   Eksisterende runtime, .env og data bevares.
 echo.
+echo UNDER SETUP:
+echo   Du skal KUN svare paa optagelsesmappe og arbejdmail.
+echo   Luk Ollama-vinduer hvis de kommer. Skriv IKKE ollama.
+echo.
 
 powershell -NoProfile -ExecutionPolicy Bypass -Command "Get-ChildItem -LiteralPath '%~dp0.' -Recurse -File | Where-Object { $_.Extension -in '.ps1','.bat' } | Unblock-File" >nul 2>&1
 

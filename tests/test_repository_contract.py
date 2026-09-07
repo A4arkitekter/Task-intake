@@ -80,6 +80,7 @@ class RepositoryContractTests(unittest.TestCase):
         self.assertIn("Eksisterende runtime, .env og data bevares", script)
         self.assertIn("app\\main.py", script)
         self.assertIn("Unblock-File", script)
+        self.assertIn("Skriv IKKE ollama", script)
 
     def test_powershell_scripts_parse_as_windows_powershell_files(self):
         """GitHub ZIP + Windows PowerShell 5.1 requires UTF-8 BOM and valid -File parse."""
@@ -128,6 +129,10 @@ class RepositoryContractTests(unittest.TestCase):
         self.assertIn("gyldig mailadresse", script)
         self.assertIn("data\\audio", script)
         self.assertIn("data\\behandlet", script)
+        self.assertIn("/NORESTART", script)
+        self.assertIn("Du skal ikke skrive ollama", script)
+        self.assertNotIn("ollama pull", script)
+        self.assertNotIn(".Source list", script)
 
     def test_updater_refuses_to_run_directly_from_a_network_share(self):
         script = (ROOT / "Update-Intake.ps1").read_text(encoding="utf-8-sig")

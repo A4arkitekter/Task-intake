@@ -232,8 +232,29 @@ function Copy-WhisperRuntime {
     Copy-Item -LiteralPath $source -Destination $dest -Recurse -Force
 }
 
+function Get-OllamaCommand {
+    $env:Path = [Environment]::GetEnvironmentVariable("Path", "Machine") + ";" + [Environment]::GetEnvironmentVariable("Path", "User")
+    $cmd = Get-Command "ollama.exe" -ErrorAction SilentlyContinue
+    if ($cmd) { return $cmd }
+    foreach ($path in @(
+        (Join-Path $env:LOCALAPPDATA "Programs\Ollama\ollama.exe"),
+        (Join-Path ${env:ProgramFiles} "Ollama\ollama.exe")
+    )) {
+        if ($path -and (Test-Path -LiteralPath $path -PathType Leaf)) {
+            return [pscustomobject]@{ Source = $path }
+        }
+    }
+    return $null
+}
+
+function Test-OllamaModelFiles {
+    $blobs = Join-Path $env:USERPROFILE ".ollama\models\blobs"
+    if (-not (Test-Path -LiteralPath $blobs -PathType Container)) { return $false }
+    return [bool](Get-ChildItem -LiteralPath $blobs -File -ErrorAction SilentlyContinue | Select-Object -First 1)
+}
+
 function Install-OllamaRuntime {
-    $ollama = Get-Command "ollama.exe" -ErrorAction SilentlyContinue
+    $ollama = Get-OllamaCommand
     if (-not $ollama) {
         $setup = @(
             (Join-Path $PSScriptRoot "runtime\OllamaSetup.exe"),
@@ -243,38 +264,37 @@ function Install-OllamaRuntime {
             Write-Status "Ollama mangler, og installeren ligger ikke i runtime. Installér Ollama manuelt, eller læg OllamaSetup.exe i runtime." Yellow
             return
         }
-        Write-Status "Installerer Ollama fra runtime ..."
-        $process = Start-Process -FilePath $setup -ArgumentList "/VERYSILENT" -PassThru -Wait
-        if ($process.ExitCode -notin @(0, 3010)) {
+        Write-Status "Installerer Ollama i baggrunden. Du skal ikke skrive ollama, og du skal ikke bruge Ollama-vinduet."
+        $process = Start-Process -FilePath $setup -ArgumentList "/VERYSILENT","/NORESTART" -PassThru
+        $deadline = (Get-Date).AddMinutes(8)
+        do {
+            Start-Sleep -Seconds 2
+            $ollama = Get-OllamaCommand
+            if ($ollama) { break }
+        } while (-not $process.HasExited -and (Get-Date) -lt $deadline)
+        if (-not $ollama) { $ollama = Get-OllamaCommand }
+        Get-Process -Name "OllamaSetup" -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+        if (-not $ollama -and $process.HasExited -and $process.ExitCode -notin @(0, 3010)) {
             throw "Ollama-installationen fejlede med kode $($process.ExitCode)."
         }
-        $env:Path = [Environment]::GetEnvironmentVariable("Path", "Machine") + ";" + [Environment]::GetEnvironmentVariable("Path", "User")
-        $ollama = Get-Command "ollama.exe" -ErrorAction SilentlyContinue
     }
     if (-not $ollama) {
-        Write-Status "Ollama blev ikke fundet på PATH efter installationen. Start computeren igen, og kør SETUP.bat." Yellow
+        Write-Status "Ollama blev ikke fundet efter installationen. Start computeren igen, og kør SETUP.bat." Yellow
         return
     }
 
     $modelSource = Join-Path $PSScriptRoot "runtime\ollama-models"
     $modelDest = Join-Path $env:USERPROFILE ".ollama\models"
-    if ((Test-Path -LiteralPath $modelSource -PathType Container) -and -not (Test-Path -LiteralPath $modelDest -PathType Container)) {
-        Write-Status "Kopierer Ollama-modellen fra runtime ..."
+    if ((Test-Path -LiteralPath $modelSource -PathType Container) -and -not (Test-OllamaModelFiles)) {
+        Write-Status "Kopierer Ollama-modellen fra runtime (uden at aabne Ollama) ..."
         New-Item -ItemType Directory -Path (Split-Path -Parent $modelDest) -Force | Out-Null
         Copy-Item -LiteralPath $modelSource -Destination $modelDest -Recurse -Force
     }
 
-    $contractRt = Get-Content -LiteralPath (Join-Path $PSScriptRoot "runtime-contract.json") -Raw | ConvertFrom-Json
-    $wanted = [string]$contractRt.ollamaModel
-    $listed = & $ollama.Source list 2>$null | Out-String
-    if ($listed -notmatch [regex]::Escape($wanted.Split(':')[0])) {
-        Write-Status "Henter Ollama-modellen $wanted (kan tage tid) ..."
-        & $ollama.Source pull $wanted
-        if ($LASTEXITCODE -ne 0) {
-            Write-Status "Ollama kunne ikke hente $wanted. Kør 'ollama pull $wanted' senere." Yellow
-        }
+    if (Test-OllamaModelFiles) {
+        Write-Status "Ollama-modellen ligger lokalt. Setup kalder ikke ollama.exe." Green
     } else {
-        Write-Status "Ollama-modellen $wanted er allerede installeret." Green
+        Write-Status "Ollama-modellen blev ikke fundet i runtime. Overskrifter bruger raa Whisper, indtil modellen ligger i .ollama\models." Yellow
     }
 }
 

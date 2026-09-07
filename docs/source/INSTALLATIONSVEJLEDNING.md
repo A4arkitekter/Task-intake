@@ -42,7 +42,7 @@ Hvis stien indeholder `runtime\runtime`, er mappen lagt ét niveau for dybt. Git
 ### 3. Kør SETUP.bat
 
 1. Dobbeltklik den lokale `SETUP.bat`.
-2. Godkend Windows-vinduer, der dukker op bag kommandovinduet.
+2. Du skal **kun** svare på optagelsesmappe og arbejdmail. Godkend en Windows-UAC, hvis den ligger bagved. **Skriv ikke ollama**, og brug ikke Ollamas vindue — luk det, hvis det kommer. Setup kører videre af sig selv.
 3. Setup viser den mappe, optagelser hentes fra. Den finder selv ASR (Android) eller RecUp (iPhone), hvis mappen allerede findes, ellers typisk:
 
 ```text

@@ -67,15 +67,26 @@ $gpuName = if ($ForceCpu) { $null } else { Get-NvidiaGpuName }
 if ($gpuName) { Ok "NVIDIA-GPU fundet: $gpuName" }
 else { Ok "Ingen NVIDIA-GPU. Whisper og Ollama bruger CPU." }
 
-$ollama = Get-Command "ollama.exe" -ErrorAction SilentlyContinue
-if ($ollama) {
-    Ok "Ollama er installeret"
-    $listed = & $ollama.Source list 2>$null | Out-String
-    if ($listed -match [regex]::Escape(([string]$runtimeContract.ollamaModel).Split(':')[0])) {
-        Ok "Ollama-modellen $($runtimeContract.ollamaModel) er installeret"
-    } else {
-        Warn "Ollama-modellen $($runtimeContract.ollamaModel) mangler. Kør: ollama pull $($runtimeContract.ollamaModel)"
+$ollamaExe = $null
+$ollamaCmd = Get-Command "ollama.exe" -ErrorAction SilentlyContinue
+if ($ollamaCmd) { $ollamaExe = $ollamaCmd.Source }
+if (-not $ollamaExe) {
+    foreach ($path in @(
+        (Join-Path $env:LOCALAPPDATA "Programs\Ollama\ollama.exe"),
+        (Join-Path ${env:ProgramFiles} "Ollama\ollama.exe")
+    )) {
+        if ($path -and (Test-Path -LiteralPath $path -PathType Leaf)) { $ollamaExe = $path; break }
     }
+}
+$ollamaBlobs = Join-Path $env:USERPROFILE ".ollama\models\blobs"
+$ollamaHasModel = $false
+if (Test-Path -LiteralPath $ollamaBlobs -PathType Container) {
+    $ollamaHasModel = [bool](Get-ChildItem -LiteralPath $ollamaBlobs -File -ErrorAction SilentlyContinue | Select-Object -First 1)
+}
+if ($ollamaExe) {
+    Ok "Ollama er installeret"
+    if ($ollamaHasModel) { Ok "Ollama-modellen ligger lokalt" }
+    else { Warn "Ollama-modellen mangler i $env:USERPROFILE\.ollama\models. Kopiér runtime\ollama-models, eller kør SETUP.bat igen." }
 } else {
     Warn "Ollama mangler. Overskrifter falder tilbage til rå Whisper-tekst, indtil den er installeret."
 }
