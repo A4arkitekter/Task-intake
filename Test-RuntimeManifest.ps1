@@ -13,7 +13,7 @@ if (-not (Test-Path -LiteralPath $ContractPath -PathType Leaf)) {
     throw "GitHub-kodens runtime-kontrakt mangler: $ContractPath"
 }
 
-$root = (Resolve-Path -LiteralPath $RuntimePath).Path
+$root = [IO.Path]::GetFullPath((Resolve-Path -LiteralPath $RuntimePath).ProviderPath).TrimEnd('\')
 $manifestPath = Join-Path $root "runtime-manifest.json"
 if (-not (Test-Path -LiteralPath $manifestPath -PathType Leaf)) {
     throw "Runtime-manifest mangler: $manifestPath"

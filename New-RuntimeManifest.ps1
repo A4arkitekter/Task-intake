@@ -5,18 +5,19 @@ param(
 
 $ErrorActionPreference = "Stop"
 . (Join-Path $PSScriptRoot "tools\Install-Helpers.ps1")
-$root = (Resolve-Path -LiteralPath $RuntimePath).Path
+$root = [IO.Path]::GetFullPath((Resolve-Path -LiteralPath $RuntimePath).ProviderPath).TrimEnd('\')
 $contract = Get-Content -LiteralPath $ContractPath -Raw | ConvertFrom-Json
-$metadataPaths = @(
-    (Join-Path $root "runtime-manifest.json"),
-    (Join-Path $root "README.txt")
-)
+$metadataNames = @("runtime-manifest.json", "README.txt")
 $files = Get-ChildItem -LiteralPath $root -Recurse -File |
-    Where-Object { $metadataPaths -notcontains $_.FullName } |
+    Where-Object { $metadataNames -notcontains $_.Name } |
     Sort-Object FullName |
     ForEach-Object {
+        $full = [IO.Path]::GetFullPath($_.FullName)
+        if (-not $full.StartsWith($root, [StringComparison]::OrdinalIgnoreCase)) {
+            throw "Filen ligger uden for runtime-mappen: $full"
+        }
         [ordered]@{
-            path = $_.FullName.Substring($root.Length).TrimStart('\').Replace('\', '/')
+            path = $full.Substring($root.Length).TrimStart('\').Replace('\', '/')
             bytes = $_.Length
             sha256 = Get-FileSha256 $_.FullName
         }
