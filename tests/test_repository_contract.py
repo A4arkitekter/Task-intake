@@ -122,9 +122,12 @@ class RepositoryContractTests(unittest.TestCase):
         script = (ROOT / "setup.ps1").read_text(encoding="utf-8-sig")
         self.assertIn("Optagelser hentes fra denne mappe", script)
         self.assertIn("Dropbox\\Apps\\ASRRecordings", script)
+        self.assertIn("RecUp Memos", script)
         self.assertIn("Tryk Enter for at bruge den, eller skriv en anden sti", script)
         self.assertIn("Din arbejdmail", script)
         self.assertIn("gyldig mailadresse", script)
+        self.assertIn("data\\audio", script)
+        self.assertIn("data\\behandlet", script)
 
     def test_updater_refuses_to_run_directly_from_a_network_share(self):
         script = (ROOT / "Update-Intake.ps1").read_text(encoding="utf-8-sig")

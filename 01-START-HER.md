@@ -36,7 +36,7 @@ Kollegaens mappe er **ikke** et Git-repository.
 
 GPU er en bonus. Uden NVIDIA kører Whisper og Ollama på CPU; første overskrift tager længere.
 
-Dropbox-mappen er `C:\Users\<login>\Dropbox\Apps\ASRRecordings` (ASR Voice Recorder, Android eller iPhone). Mangler den, er det en advarsel, ikke et stop.
+Dropbox-mappen er den, setup viser (ASR `Apps\ASRRecordings` på Android, RecUp `Apps\RecUp Memos` eller `Apps\RecUp` på iPhone). Mangler den, er det en advarsel, ikke et stop.
 
 ## Senere opdateringer
 

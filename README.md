@@ -65,8 +65,10 @@ Overskrifter skrives af lokal Ollama (`qwen2.5:14b` som standard — ikke ChatGP
 
 Telefonen optager med sin **egen** optager-app. Der skal ikke installeres nogen model på telefonen, og PC'en behøver ikke være tændt, når du taler.
 
-1. Installer **ASR Voice Recorder** på telefonen og slå upload til **Dropbox** til. Dropbox beder kun om adgang til sin egen mappe under `Apps\`, hvor OneDrive-integrationen vil have adgang til alle dine filer.
-2. Optag et klip, og se at det lander i `Dropbox\Apps\ASRRecordings` på PC'en.
+1. Installer optageren og slå upload til **Dropbox** til. Dropbox beder kun om adgang til sin egen mappe under `Apps\`, hvor OneDrive-integrationen vil have adgang til alle dine filer.
+   - **Android:** ASR Voice Recorder. Filen lander i `Dropbox\Apps\ASRRecordings`.
+   - **iPhone:** RecUp (App Store). Filen lander i `Dropbox\Apps\RecUp Memos` eller `Dropbox\Apps\RecUp`. ASR Voice Recorder findes ikke til iPhone.
+2. Optag et klip, og se at det lander i den mappe på PC'en.
 3. Hold mappen lokal på PC'en. Gør Dropbox den "kun online", ligger filen som en 0-byte pladsholder, som overvågningen med vilje springer over.
 4. Sæt `INBOX_DIR` i `.env` til den mappe.
 

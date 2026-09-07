@@ -126,6 +126,30 @@ function New-Secret([int]$Length = 32) {
     return -join ($bytes | ForEach-Object { $chars[$_ % $chars.Length] })
 }
 
+function Get-DefaultInboxDir {
+    $dropbox = Join-Path $env:USERPROFILE "Dropbox"
+    $candidates = @(
+        (Join-Path $dropbox "Apps\ASRRecordings"),
+        (Join-Path $dropbox "Apps\RecUp Memos"),
+        (Join-Path $dropbox "Apps\RecUp"),
+        (Join-Path $dropbox "RecUp")
+    )
+    foreach ($candidate in $candidates) {
+        if (Test-Path -LiteralPath $candidate -PathType Container) { return $candidate }
+    }
+    return $candidates[0]
+}
+
+function Initialize-LocalDataDirs {
+    foreach ($dir in @(
+        (Join-Path $PSScriptRoot "data\audio"),
+        (Join-Path $PSScriptRoot "data\behandlet"),
+        (Join-Path $PSScriptRoot "data\models")
+    )) {
+        New-Item -ItemType Directory -Path $dir -Force | Out-Null
+    }
+}
+
 function Write-ColleagueEnv([bool]$UseGpu) {
     $envPath = Join-Path $PSScriptRoot ".env"
     if (Test-Path -LiteralPath $envPath -PathType Leaf) {
@@ -135,11 +159,13 @@ function Write-ColleagueEnv([bool]$UseGpu) {
     Copy-Item -LiteralPath (Join-Path $PSScriptRoot ".env.example") -Destination $envPath
     $password = New-Secret 12
     $secret = New-Secret 40
-    $inbox = Join-Path $env:USERPROFILE "Dropbox\Apps\ASRRecordings"
+    $inbox = Get-DefaultInboxDir
     $mail = ""
     if (-not $NonInteractive) {
         Write-Host ""
-        Write-Host "Optagelser hentes fra denne mappe (ASR Voice Recorder / Dropbox):" -ForegroundColor Cyan
+        Write-Host "Android: ASR Voice Recorder -> Dropbox\Apps\ASRRecordings" -ForegroundColor Cyan
+        Write-Host "iPhone: RecUp -> Dropbox\Apps\RecUp Memos (eller Apps\RecUp)" -ForegroundColor Cyan
+        Write-Host "Optagelser hentes fra denne mappe:" -ForegroundColor Cyan
         Write-Host "  $inbox"
         $inboxTyped = Read-Host "Tryk Enter for at bruge den, eller skriv en anden sti"
         if ($inboxTyped.Trim()) { $inbox = $inboxTyped.Trim().Trim('"') }
@@ -178,7 +204,7 @@ function Write-ColleagueEnv([bool]$UseGpu) {
     Write-Status "Adgangskoden til indbakken er: $password" Yellow
     Write-Status "Gem den. Den står også i den lokale .env, som aldrig må kopieres til NAS eller GitHub." Yellow
     if (-not (Test-Path -LiteralPath $inbox -PathType Container)) {
-        Write-Status "Dropbox-mappen $inbox findes endnu ikke. Det er i orden — sæt ASR og Dropbox op bagefter." Yellow
+        Write-Status "Dropbox-mappen $inbox findes endnu ikke. Det er i orden — sæt ASR (Android) eller RecUp (iPhone) og Dropbox op bagefter." Yellow
     }
 }
 
@@ -306,6 +332,7 @@ try {
     }
 
     Write-Status "=== Trin 4 af 5: Lokal konfiguration, Whisper og Ollama ==="
+    Initialize-LocalDataDirs
     Write-ColleagueEnv -UseGpu $useGpu
     Copy-WhisperRuntime
     Install-OllamaRuntime

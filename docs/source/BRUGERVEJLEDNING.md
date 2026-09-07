@@ -4,12 +4,14 @@ Tal en idé ind på telefonen. Sorter den ved computeren. Godkendte kort åbner 
 
 ## Sådan kommer en idé ind
 
-1. Optag med **ASR Voice Recorder** på Android eller iPhone.
-2. Slå upload til **Dropbox** til. Filen lander i `Dropbox\Apps\ASRRecordings` på din PC - samme mappe, du bekræftede under installationen.
+1. Optag på telefonen og slå upload til **Dropbox** til:
+   - **Android:** **ASR Voice Recorder** (Play Butik). Filen lander i `Dropbox\Apps\ASRRecordings`.
+   - **iPhone:** **RecUp** (App Store: RecUp – Record to the Cloud). Filen lander i `Dropbox\Apps\RecUp Memos` eller `Dropbox\Apps\RecUp` (afhænger af Dropbox-tilladelsen i appen).
+2. Det skal være **samme mappe**, du bekræftede under installationen.
 3. Computeren skal køre Indtagelse (den starter ved login). Du behøver ikke have telefonen på nettet, mens PC'en behandler filen.
 4. Hold mappen **lokal** i Dropbox. En fil, der kun ligger online, er en tom pladsholder og bliver sprunget over.
 
-Programmet venter, til filen er færdig med at synke, og flytter den derefter ud af Dropbox, så skyen ikke fyldes.
+Programmet venter, til filen er færdig med at synke, og flytter den derefter ud af Dropbox, så skyen ikke fyldes. Originalen ligger i `data\behandlet`. En kopi til afspilning ligger i `data\audio` (oprettes ved setup, også når den er tom).
 
 ## Indbakken
 

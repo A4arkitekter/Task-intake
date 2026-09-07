@@ -31,6 +31,7 @@ class PdfGuideTests(unittest.TestCase):
         self.assertIn("Førstegangsinstallation", install)
         self.assertIn("arbejdmail", install)
         self.assertIn("ASRRecordings", install)
+        self.assertIn("RecUp", install)
         self.assertIn("Opdatér og genstart", install)
         self.assertIn(r"\\a4diskstation4\A4software\task-intake", install)
 
@@ -40,6 +41,7 @@ class PdfGuideTests(unittest.TestCase):
         self.assertIn("høj prioritet", daily)
         self.assertIn("Åbn i Outlook", daily)
         self.assertIn("ASR Voice Recorder", daily)
+        self.assertIn("RecUp", daily)
 
 
 if __name__ == "__main__":

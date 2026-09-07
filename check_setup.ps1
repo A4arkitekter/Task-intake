@@ -88,7 +88,7 @@ if (Test-Path -LiteralPath ".env" -PathType Leaf) {
 if (Test-Path -LiteralPath $inbox -PathType Container) {
     Ok "Overvåget Dropbox-mappe findes: $inbox"
 } else {
-    Warn "Dropbox-mappen findes ikke endnu: $inbox. Sæt ASR Voice Recorder og Dropbox op (Android eller iPhone)."
+    Warn "Dropbox-mappen findes ikke endnu: $inbox. Sæt ASR Voice Recorder (Android) eller RecUp (iPhone) op med Dropbox."
 }
 
 try {

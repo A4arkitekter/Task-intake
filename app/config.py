@@ -88,6 +88,7 @@ def ensure_dirs() -> None:
     MODEL_DIR.mkdir(parents=True, exist_ok=True)
     ICON_DIR.mkdir(parents=True, exist_ok=True)
     INBOX_DIR.mkdir(parents=True, exist_ok=True)
+    INBOX_ARCHIVE_DIR.mkdir(parents=True, exist_ok=True)
 
 
 def mail_settings() -> dict[str, str]:

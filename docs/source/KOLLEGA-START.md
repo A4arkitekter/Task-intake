@@ -62,13 +62,13 @@ Forventet indhold i `runtime/`:
 
 1. Dobbeltklik den lokale `SETUP.bat`.
 2. Godkend eventuelle Windows-vinduer, der dukker op bag kommandovinduet.
-3. Setup viser optagelsesstien (typisk `C:\Users\<login>\Dropbox\Apps\ASRRecordings`) og lader dig rette den. Derefter skal kollegaens arbejdmail udfyldes (`MAIL_CC` / `REMIND_TO`). Adgangskoden vises én gang.
+3. Setup viser optagelsesstien. Den vælger den Dropbox-mappe, der findes (ASR `Apps\ASRRecordings` eller RecUp `Apps\RecUp Memos` / `Apps\RecUp`), og lader dig rette den. Derefter skal kollegaens arbejdmail udfyldes (`MAIL_CC` / `REMIND_TO`). Adgangskoden vises én gang.
 4. Vent, til der står at opsætningen er færdig.
 5. Dobbeltklik `SYSTEMTJEK.bat`.
 
 Setup opretter lokale filer som `.env`, `.venv`, `install-state.json` og logfiler. De skal ikke kopieres mellem computere.
 
-`.env` peger `INBOX_DIR` på `C:\Users\<login>\Dropbox\Apps\ASRRecordings`. Telefonen bruger ASR Voice Recorder med upload til Dropbox (Android eller iPhone). Mangler mappen, er det en advarsel — telefon eller Dropbox er ikke færdig — ikke et stop.
+`.env` peger `INBOX_DIR` på Dropbox-mappen for telefonens optager. **Android** bruger ASR Voice Recorder (`Dropbox\Apps\ASRRecordings`). **iPhone** bruger RecUp (`Dropbox\Apps\RecUp Memos` eller `Dropbox\Apps\RecUp`). ASR findes ikke i App Store. Mangler mappen, er det en advarsel — telefon eller Dropbox er ikke færdig — ikke et stop.
 
 GPU er en bonus. Setup bruger CUDA når NVIDIA findes, ellers CPU. Whisper er `large-v3`. Ollama `qwen2.5:14b` kører også på CPU; første overskrift tager længere.
 
