@@ -1,4 +1,4 @@
-param(
+﻿param(
     [switch]$ForceCpu,
     [switch]$SkipPackages,
     [switch]$SkipPythonInstall,
@@ -191,7 +191,7 @@ function Copy-WhisperRuntime {
     )
     $source = $candidates | Where-Object { Test-Path -LiteralPath $_ -PathType Container } | Select-Object -First 1
     if (-not $source) {
-        Write-Status "Ingen Whisper-model i runtime. Første start henter den fra nettet (~2,9 GB)." Yellow
+        Write-Status "Ingen Whisper-model i runtime. Foerste start henter den fra nettet (cirka 2,9 GB)." Yellow
         return
     }
     $name = Split-Path -Leaf $source

@@ -25,7 +25,7 @@ IT henter programmet. Kollegaen skal ikke have GitHub-adgang. Du skal bruge inte
 C:\apps\task-intake
 ```
 
-`SETUP.bat` skal ligge direkte i denne mappe - ikke i en ekstra undermappe.
+`SETUP.bat` skal ligge direkte i denne mappe - ikke i en ekstra undermappe som `Task-intake-main`. Windows kan blokere scripts fra en ZIP; `SETUP.bat` fjerner den blokering selv.
 
 ### 2. Kopiér runtime fra NAS
 

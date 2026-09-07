@@ -1,4 +1,4 @@
-param(
+﻿param(
     [string]$RuntimePath = (Join-Path $PSScriptRoot "runtime"),
     [string]$ContractPath = (Join-Path $PSScriptRoot "runtime-contract.json")
 )

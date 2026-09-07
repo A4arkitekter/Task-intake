@@ -1,4 +1,4 @@
-$ErrorActionPreference = "Stop"
+﻿$ErrorActionPreference = "Stop"
 Set-Location $PSScriptRoot
 
 $requiredFiles = @(
@@ -9,7 +9,7 @@ $requiredFiles = @(
     "OPDATER.bat", "Update-Intake.ps1",
     "UDGIV OPDATERING.bat", "Publish-Update.ps1",
     "Test-GitContents.ps1", "Test-InstallState.ps1", "Test-RuntimeManifest.ps1",
-    "New-RuntimeManifest.ps1",
+    "New-RuntimeManifest.ps1", ".gitattributes",
     "install-contract.json", "runtime-contract.json",
     "requirements.txt", "requirements-lock.txt", "requirements-gpu.txt", "requirements-dev.txt",
     "tools/Install-Helpers.ps1",
@@ -17,6 +17,7 @@ $requiredFiles = @(
     "docs/source/INSTALLATIONSVEJLEDNING.md",
     "docs/source/BRUGERVEJLEDNING.md",
     "01-START-HER.md",
+    "static/brand/a4-logo.svg",
     "INSTALLATIONSVEJLEDNING.pdf",
     "BRUGERVEJLEDNING.pdf",
     "tools/generate_guides_pdf.py"

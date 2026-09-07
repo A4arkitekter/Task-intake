@@ -1,4 +1,4 @@
-param([switch]$NoBrowser)
+﻿param([switch]$NoBrowser)
 
 $ErrorActionPreference = "Stop"
 Set-Location $PSScriptRoot

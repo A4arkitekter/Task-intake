@@ -1,4 +1,4 @@
-$ErrorActionPreference = "Continue"
+﻿$ErrorActionPreference = "Continue"
 Set-Location $PSScriptRoot
 $logPath = Join-Path $PSScriptRoot "systemtjek.txt"
 $reportPath = Join-Path $PSScriptRoot "fejlrapport.zip"

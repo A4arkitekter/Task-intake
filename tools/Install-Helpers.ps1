@@ -1,4 +1,4 @@
-function Get-FileSha256([string]$Path) {
+﻿function Get-FileSha256([string]$Path) {
     $Path = [IO.Path]::GetFullPath($Path)
     $stream = [System.IO.File]::OpenRead($Path)
     $sha = [System.Security.Cryptography.SHA256]::Create()

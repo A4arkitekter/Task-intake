@@ -6,6 +6,7 @@ echo ========================================
 echo  Indtagelse - systemtjek
 echo ========================================
 echo.
+powershell -NoProfile -ExecutionPolicy Bypass -Command "Get-ChildItem -LiteralPath '%~dp0.' -Recurse -File | Where-Object { $_.Extension -in '.ps1','.bat' } | Unblock-File" >nul 2>&1
 powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0Run-SystemCheck.ps1"
 set "EXITCODE=%ERRORLEVEL%"
 echo.

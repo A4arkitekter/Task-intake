@@ -1,4 +1,4 @@
-# Stopper indtagelsen, uanset om den blev startet i en terminal eller af den planlagte opgave.
+﻿# Stopper indtagelsen, uanset om den blev startet i en terminal eller af den planlagte opgave.
 $ErrorActionPreference = "Stop"
 
 $stopped = $false

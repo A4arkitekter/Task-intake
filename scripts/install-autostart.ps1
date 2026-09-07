@@ -1,4 +1,4 @@
-# Registrerer en planlagt opgave, så indtagelsen starter ved login uden et vindue.
+﻿# Registrerer en planlagt opgave, så indtagelsen starter ved login uden et vindue.
 # Autostart skal pege på Start-Indtagelse.ps1. Ellers kan opdateringsknappen ikke genstarte.
 # Kør som dig selv, ikke som administrator.
 $ErrorActionPreference = "Stop"

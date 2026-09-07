@@ -1,4 +1,4 @@
-param([switch]$Quiet)
+﻿param([switch]$Quiet)
 
 $ErrorActionPreference = "Stop"
 . (Join-Path $PSScriptRoot "tools\Install-Helpers.ps1")

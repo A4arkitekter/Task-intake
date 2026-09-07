@@ -78,6 +78,45 @@ class RepositoryContractTests(unittest.TestCase):
     def test_setup_explains_that_local_configuration_is_preserved(self):
         script = (ROOT / "SETUP.bat").read_text(encoding="utf-8-sig")
         self.assertIn("Eksisterende runtime, .env og data bevares", script)
+        self.assertIn("app\\main.py", script)
+        self.assertIn("Unblock-File", script)
+
+    def test_powershell_scripts_parse_as_windows_powershell_files(self):
+        """GitHub ZIP + Windows PowerShell 5.1 requires UTF-8 BOM and valid -File parse."""
+        skip = {".venv", "runtime", "data", ".git"}
+        ps1_files = [
+            path for path in ROOT.rglob("*.ps1")
+            if not skip.intersection(path.parts)
+        ]
+        self.assertTrue(ps1_files, "Ingen .ps1-filer fundet")
+        bom = b"\xef\xbb\xbf"
+        failures = []
+        for path in ps1_files:
+            raw = path.read_bytes()
+            body = raw[len(bom):] if raw.startswith(bom) else raw
+            if any(byte > 127 for byte in body) and not raw.startswith(bom):
+                failures.append(f"{path.relative_to(ROOT)} mangler UTF-8 BOM")
+                continue
+            ps_path = str(path).replace("'", "''")
+            command = (
+                "$err = $null; "
+                "$null = [System.Management.Automation.Language.Parser]::ParseFile("
+                f"'{ps_path}', [ref]$null, [ref]$err); "
+                "if ($err) { $err | ForEach-Object { $_.ToString() }; exit 1 }; "
+                "exit 0"
+            )
+            result = subprocess.run(
+                ["powershell", "-NoProfile", "-Command", command],
+                cwd=ROOT,
+                capture_output=True,
+                timeout=30,
+            )
+            if result.returncode != 0:
+                detail = (result.stdout or b"") + (result.stderr or b"")
+                failures.append(
+                    f"{path.relative_to(ROOT)} parses ikke:\n{detail.decode('utf-8', 'replace')}"
+                )
+        self.assertFalse(failures, "\n".join(failures))
 
     def test_setup_asks_for_inbox_path_and_work_email(self):
         script = (ROOT / "setup.ps1").read_text(encoding="utf-8-sig")

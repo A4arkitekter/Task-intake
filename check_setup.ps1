@@ -1,4 +1,4 @@
-param(
+﻿param(
     [switch]$ForceCpu,
     [string]$RuntimePath = "",
     [switch]$SkipRuntimeManifest

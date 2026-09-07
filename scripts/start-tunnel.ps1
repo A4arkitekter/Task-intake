@@ -1,4 +1,4 @@
-# Starter indtagelse på http://127.0.0.1:8000 og publicerer HTTPS via Cloudflare Tunnel.
+﻿# Starter indtagelse på http://127.0.0.1:8000 og publicerer HTTPS via Cloudflare Tunnel.
 # Kræver: cloudflared i PATH (winget install Cloudflare.cloudflared)
 $ErrorActionPreference = "Stop"
 Set-Location $PSScriptRoot\..

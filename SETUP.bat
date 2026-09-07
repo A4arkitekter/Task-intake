@@ -18,6 +18,19 @@ echo   Koer kun SETUP.bat, hvis startfilen beder om det.
 echo   Eksisterende runtime, .env og data bevares.
 echo.
 
+powershell -NoProfile -ExecutionPolicy Bypass -Command "Get-ChildItem -LiteralPath '%~dp0.' -Recurse -File | Where-Object { $_.Extension -in '.ps1','.bat' } | Unblock-File" >nul 2>&1
+
+if not exist "app\main.py" (
+    echo STOP: SETUP.bat ligger ikke i programmets rodmappe.
+    echo.
+    echo GitHubs ZIP pakker ofte ud som en extra mappe, f.eks. Task-intake-main.
+    echo Flyt indholdet, saa SETUP.bat og mappen app ligger i:
+    echo   C:\apps\task-intake
+    echo.
+    pause
+    exit /b 1
+)
+
 if not exist "runtime\runtime-manifest.json" (
     echo STOP: RUNTIME-MAPPEN MANGLER ELLER ER KOPIERET FORKERT.
     echo.

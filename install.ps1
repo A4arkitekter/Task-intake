@@ -1,4 +1,4 @@
-param(
+﻿param(
     [ValidateSet("Auto", "GPU", "CPU")]
     [string]$Backend = "Auto",
     [string]$PythonPath = ""

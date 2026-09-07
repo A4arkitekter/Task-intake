@@ -12,7 +12,9 @@ Kollegaens mappe er **ikke** et Git-repository.
    C:\apps\task-intake
    ```
 
-   `SETUP.bat` skal ligge direkte i den mappe — ikke i en ekstra undermappe.
+   `SETUP.bat` skal ligge direkte i den mappe — ikke i en ekstra undermappe
+   som `Task-intake-main`. Windows kan blokere scripts fra en ZIP; `SETUP.bat`
+   fjerner den blokering selv.
 
 2. Kopiér **hele** `runtime` fra NAS:
 

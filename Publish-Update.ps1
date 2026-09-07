@@ -1,4 +1,4 @@
-param([string]$Destination)
+﻿param([string]$Destination)
 
 $ErrorActionPreference = "Stop"
 Set-Location $PSScriptRoot
