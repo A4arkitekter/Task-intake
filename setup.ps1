@@ -359,6 +359,9 @@ try {
     $autostart = Join-Path $PSScriptRoot "scripts\install-autostart.ps1"
     if (Test-Path -LiteralPath $autostart -PathType Leaf) {
         & (Join-Path $PSHOME "powershell.exe") -NoProfile -ExecutionPolicy Bypass -File $autostart
+        if ($LASTEXITCODE -ne 0) {
+            throw "Autostart kunne ikke sættes. Kør scripts\install-autostart.ps1 og se fejlen."
+        }
     }
 
     Write-Status "=== Trin 5 af 5: Kører samlet systemtjek ==="
