@@ -189,6 +189,11 @@ class RepositoryContractTests(unittest.TestCase):
         self.assertIn("powershell.exe", script)
         self.assertNotIn("pythonw.exe", script.lower())
 
+    def test_post_update_state_check_reregisters_autostart(self):
+        script = (ROOT / "Test-InstallState.ps1").read_text(encoding="utf-8-sig")
+        self.assertIn("scripts\\install-autostart.ps1", script)
+        self.assertIn("if ($Quiet)", script)
+
     def test_inbox_exposes_update_and_restart_button(self):
         script = (ROOT / "static" / "js" / "inbox.js").read_text(encoding="utf-8")
         self.assertIn("Opdatér og genstart", script)

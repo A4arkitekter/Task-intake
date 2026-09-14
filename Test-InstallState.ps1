@@ -34,5 +34,12 @@ foreach ($file in $requiredFiles) {
     }
 }
 
+if ($Quiet) {
+    $autostart = Join-Path $PSScriptRoot "scripts\install-autostart.ps1"
+    if (Test-Path -LiteralPath $autostart -PathType Leaf) {
+        & (Join-Path $PSHOME "powershell.exe") -NoProfile -ExecutionPolicy Bypass -File $autostart 1>$null 2>$null
+    }
+}
+
 if (-not $Quiet) { Write-Host "Installationen matcher programversionen." -ForegroundColor Green }
 exit 0
