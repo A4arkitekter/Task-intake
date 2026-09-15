@@ -11,7 +11,6 @@ if ($CheckOnly) {
 Set-Location $PSScriptRoot
 $defaultSource = "\\a4diskstation4\A4software\task-intake\updates"
 $stateFile = Join-Path $PSScriptRoot ".update-state.json"
-$protectedRoots = @(".git", ".venv", "runtime", "data")
 $protectedFiles = @(
     ".env", "install-state.json", "setup-log.txt", "systemtjek.txt",
     "fejlrapport.zip", "update-source.txt", ".update-state.json",
@@ -41,7 +40,13 @@ function Get-SafeTarget([string]$RelativePath) {
         throw "Ugyldig filsti i opdateringen: $RelativePath"
     }
     $segments = @($normalized.Split('/'))
-    if ($segments -contains ".." -or $segments[0] -in $protectedRoots -or $normalized -in $protectedFiles) {
+    if ($segments -contains ".." -or $normalized -in $protectedFiles) {
+        throw "Opdateringen forsoeger at aendre en lokal eller beskyttet fil: $RelativePath"
+    }
+    if ($segments[0] -in @(".git", ".venv", "runtime")) {
+        throw "Opdateringen forsoeger at aendre en lokal eller beskyttet fil: $RelativePath"
+    }
+    if ($segments[0] -eq "data" -and $normalized -ne "data/.gitkeep") {
         throw "Opdateringen forsoeger at aendre en lokal eller beskyttet fil: $RelativePath"
     }
     $root = [IO.Path]::GetFullPath($PSScriptRoot).TrimEnd('\') + '\'

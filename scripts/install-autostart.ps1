@@ -43,14 +43,6 @@ function Write-StartupShortcut {
     return $lnk
 }
 
-function Write-RunKey {
-    $command = "`"$powershell`" $argument"
-    $key = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run"
-    New-Item -Path $key -Force | Out-Null
-    Set-ItemProperty -Path $key -Name $taskName -Value $command
-    return $command
-}
-
 $registeredTask = $false
 try {
     $action = New-ScheduledTaskAction `
@@ -79,20 +71,22 @@ try {
     $registeredTask = $true
 } catch {
     Write-AutostartLog "Planlagt opgave fejlede: $($_.Exception.Message)"
-    Write-Host "Planlagt opgave kunne ikke oprettes ($($_.Exception.Message)). Bruger Startup og Run-nøgle i stedet." -ForegroundColor Yellow
+    Write-Host "Planlagt opgave kunne ikke oprettes ($($_.Exception.Message)). Bruger Startup-genvej i stedet." -ForegroundColor Yellow
 }
 
-$shortcut = Write-StartupShortcut
-$runValue = Write-RunKey
-Write-AutostartLog "Autostart sat til $starter (task=$registeredTask shortcut=$shortcut)"
-
-Write-Host "Autostart er sat."
+$startupDir = [Environment]::GetFolderPath("Startup")
+$lnk = Join-Path $startupDir "Indtagelse.lnk"
+$runKey = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run"
 if ($registeredTask) {
+    Remove-Item -LiteralPath $lnk -Force -ErrorAction SilentlyContinue
+    Remove-ItemProperty -Path $runKey -Name $taskName -ErrorAction SilentlyContinue
+    Write-AutostartLog "Autostart sat til $starter via planlagt opgave (ingen Startup/Run, saa serveren ikke startes to gange)"
+    Write-Host "Autostart er sat."
     Write-Host "Planlagt opgave '$taskName' starter 30 sekunder efter login."
 } else {
-    Write-Host "Planlagt opgave mangler (ofte 'adgang nægtet'). Startup-genvej og Run-nøgle er sat."
+    $shortcut = Write-StartupShortcut
+    Remove-ItemProperty -Path $runKey -Name $taskName -ErrorAction SilentlyContinue
+    Write-AutostartLog "Autostart sat til $starter via Startup $shortcut"
+    Write-Host "Autostart er sat."
+    Write-Host "Startup: $shortcut"
 }
-Write-Host "Startup: $shortcut"
-Write-Host "Run: $runValue"
-Write-Host "Start nu med:  Start-Process -FilePath `"$powershell`" -ArgumentList '$argument'"
-Write-Host "Fjern med: Unregister-ScheduledTask -TaskName $taskName -Confirm:`$false ; Remove-Item -LiteralPath `"$shortcut`" -ErrorAction SilentlyContinue ; Remove-ItemProperty -Path HKCU:\Software\Microsoft\Windows\CurrentVersion\Run -Name $taskName -ErrorAction SilentlyContinue"

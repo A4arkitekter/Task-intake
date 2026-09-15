@@ -45,6 +45,25 @@ function Test-LocalPortInUse([int]$Port) {
     }
 }
 
+function Stop-LeftoverIntakePython([string]$PythonPath) {
+    $needle = [IO.Path]::GetFullPath($PythonPath)
+    Get-CimInstance Win32_Process -Filter "Name = 'python.exe'" -ErrorAction SilentlyContinue | ForEach-Object {
+        $line = [string]$_.CommandLine
+        if (-not $line) { return }
+        if ($line.IndexOf($needle, [StringComparison]::OrdinalIgnoreCase) -lt 0) { return }
+        if ($line -notmatch '-m\s+app') { return }
+        Write-StartLog "Stopper overløber python pid=$($_.ProcessId)"
+        Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue
+    }
+}
+
+function Get-StartMutex {
+    $bytes = [Text.Encoding]::UTF8.GetBytes($PSScriptRoot.ToLowerInvariant())
+    $sha = [BitConverter]::ToString([Security.Cryptography.SHA256]::Create().ComputeHash($bytes)).Replace("-", "").Substring(0, 16)
+    $created = $false
+    return New-Object System.Threading.Mutex($false, "Local\Indtagelse-$sha", [ref]$created)
+}
+
 Write-Host "========================================"
 Write-Host " Indtagelse"
 Write-Host "========================================"
@@ -77,11 +96,34 @@ if ($LASTEXITCODE -ne 0 -or -not [int]::TryParse(("$portText").Trim(), [ref]$por
 }
 $url = "http://127.0.0.1:$port"
 
+$startMutex = Get-StartMutex
+if (-not $startMutex.WaitOne(0)) {
+    Write-StartLog "En anden starter koerer allerede. Venter paa health."
+    $deadline = (Get-Date).AddSeconds(20)
+    do {
+        Start-Sleep -Seconds 1
+        $existing = $null
+        try { $existing = Invoke-RestMethod -Uri "$url/api/health" -TimeoutSec 2 } catch { }
+        if ($existing -and $existing.ok) {
+            Write-Host "Programmet koerer allerede. Browseren aabnes igen." -ForegroundColor Green
+            if (-not $NoBrowser) { Start-Process -FilePath $url }
+            exit 0
+        }
+    } while ((Get-Date) -lt $deadline)
+    Write-StartLog "Ingen ledig instans. Starter ikke en ekstra server."
+    exit 0
+}
+
 $stateCheck = Join-Path $PSScriptRoot "Test-InstallState.ps1"
 if (-not $isGitCheckout) {
     & (Join-Path $PSHOME "powershell.exe") -NoProfile -ExecutionPolicy Bypass -File $stateCheck
     if ($LASTEXITCODE -ne 0) {
-        Stop-Start "Installationen skal opdateres. Koer SETUP.bat en gang, og start derefter igen."
+        Write-StartLog "Installationskrav aendret. Koerer setup automatisk."
+        Write-Host "Opdateringen kraever en automatisk tilpasning af installationen..." -ForegroundColor Yellow
+        & (Join-Path $PSHOME "powershell.exe") -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot "setup.ps1") -NonInteractive
+        if ($LASTEXITCODE -ne 0) {
+            Stop-Start "Installationen skal opdateres. Koer SETUP.bat en gang, og start derefter igen."
+        }
     }
 }
 
@@ -112,6 +154,7 @@ while ($true) {
 
     Write-Host ""
     Write-Host "Browseren har bedt om en opdatering. Vent mens programmet opdateres..." -ForegroundColor Cyan
+    Stop-LeftoverIntakePython $venvPython
     $updater = Join-Path $PSScriptRoot "Update-Intake.ps1"
     & (Join-Path $PSHOME "powershell.exe") -NoProfile -ExecutionPolicy Bypass -File $updater
     $updateExitCode = $LASTEXITCODE

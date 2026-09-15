@@ -28,6 +28,7 @@ def make_update_fixture(tmp_path, corrupt_descriptor=False, with_obsolete=False)
     (install / "runtime" / "bevar.txt").write_text("runtime\n", encoding="utf-8")
     (install / "data").mkdir()
     (install / "data" / "bevar.txt").write_text("data\n", encoding="utf-8")
+    (install / "data" / ".gitkeep").write_text("gammel\n", encoding="utf-8")
     if with_obsolete:
         (install / "gammel-programfil.py").write_text("udgaaet\n", encoding="utf-8")
         (install / ".update-state.json").write_text(
@@ -42,22 +43,34 @@ def make_update_fixture(tmp_path, corrupt_descriptor=False, with_obsolete=False)
     new_app = package_root / "app.py"
     new_app.write_text("ny version\n", encoding="utf-8")
     app_bytes = new_app.read_bytes()
+    gitkeep = package_root / "data" / ".gitkeep"
+    gitkeep.parent.mkdir(parents=True)
+    gitkeep.write_text("ny gitkeep\n", encoding="utf-8")
+    gitkeep_bytes = gitkeep.read_bytes()
     manifest = {
         "schema": 1,
         "version": "abc123def456",
-        "files": [{
-            "path": "app.py",
-            "size": len(app_bytes),
-            "sha256": hashlib.sha256(app_bytes).hexdigest(),
-        }],
+        "files": [
+            {
+                "path": "app.py",
+                "size": len(app_bytes),
+                "sha256": hashlib.sha256(app_bytes).hexdigest(),
+            },
+            {
+                "path": "data/.gitkeep",
+                "size": len(gitkeep_bytes),
+                "sha256": hashlib.sha256(gitkeep_bytes).hexdigest(),
+            },
+        ],
     }
     (package_root / "_update-manifest.json").write_text(
         json.dumps(manifest), encoding="utf-8"
     )
     package = source / "intake-update-abc123def456.zip"
     with zipfile.ZipFile(package, "w", zipfile.ZIP_DEFLATED) as archive:
-        for path in package_root.iterdir():
-            archive.write(path, path.name)
+        archive.write(new_app, "app.py")
+        archive.write(gitkeep, "data/.gitkeep")
+        archive.write(package_root / "_update-manifest.json", "_update-manifest.json")
     package_bytes = package.read_bytes()
     descriptor_hash = hashlib.sha256(package_bytes).hexdigest()
     if corrupt_descriptor:
@@ -135,6 +148,7 @@ class UpdaterTests(unittest.TestCase):
             self.assertEqual((install / ".env").read_text(encoding="utf-8"), "APP_PASSWORD=hemmelig\n")
             self.assertEqual((install / "runtime" / "bevar.txt").read_text(encoding="utf-8"), "runtime\n")
             self.assertEqual((install / "data" / "bevar.txt").read_text(encoding="utf-8"), "data\n")
+            self.assertEqual((install / "data" / ".gitkeep").read_text(encoding="utf-8"), "ny gitkeep\n")
             state = json.loads((install / ".update-state.json").read_text(encoding="utf-8-sig"))
             self.assertEqual(state["version"], "abc123def456")
             self.assertIn("SETUP.bat skal ikke koeres", result.stdout)

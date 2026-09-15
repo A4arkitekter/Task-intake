@@ -181,6 +181,7 @@ class RepositoryContractTests(unittest.TestCase):
 
     def test_updater_refuses_to_run_directly_from_a_network_share(self):
         script = (ROOT / "Update-Intake.ps1").read_text(encoding="utf-8-sig")
+        self.assertIn("data/.gitkeep", script)
         self.assertIn('$PSScriptRoot.StartsWith("\\\\")', script)
         self.assertIn("maa ikke koeres fra NAS'en", script)
 
@@ -193,12 +194,15 @@ class RepositoryContractTests(unittest.TestCase):
         self.assertIn("Autostart maa ikke saettes fra Git-mappen", script)
         self.assertIn("PT30S", script)
         self.assertIn("InstallRoot", script)
+        self.assertIn("ingen Startup/Run", script)
 
     def test_hidden_autostart_skips_git_checkout_and_writes_a_start_log(self):
         script = (ROOT / "Start-Indtagelse.ps1").read_text(encoding="utf-8-sig")
         self.assertIn("start-log.txt", script)
         self.assertIn("Autostart ignoreret i Git-mappen", script)
         self.assertIn("$isGitCheckout -and $NoBrowser", script)
+        self.assertIn("Stop-LeftoverIntakePython", script)
+        self.assertIn("Local\\Indtagelse-", script)
 
     def test_post_update_state_check_reregisters_autostart(self):
         script = (ROOT / "Test-InstallState.ps1").read_text(encoding="utf-8-sig")
@@ -210,6 +214,8 @@ class RepositoryContractTests(unittest.TestCase):
         self.assertIn("Opdatér og genstart", script)
         self.assertIn("/api/update/apply", script)
         self.assertIn("X-Update-Token", script)
+        self.assertIn("waitForUpdatedServer", script)
+        self.assertIn("sawOffline", script)
 
     def test_powershell_start_script_has_valid_syntax_and_safe_port_handling(self):
         script_path = ROOT / "Start-Indtagelse.ps1"

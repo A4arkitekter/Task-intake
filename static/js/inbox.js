@@ -353,23 +353,36 @@ async function fetchWithTimeout(url, options = {}, timeoutMs = 3500) {
 
 async function waitForUpdatedServer(previousInstanceId) {
   const deadline = Date.now() + 30 * 60 * 1000;
+  let sawOffline = false;
   await new Promise((resolve) => setTimeout(resolve, 1800));
   while (Date.now() < deadline) {
     try {
       const healthResp = await fetchWithTimeout("/api/health", { cache: "no-store" });
       const health = await healthResp.json();
-      if (healthResp.ok && health.instance_id && health.instance_id !== previousInstanceId) {
-        let result = { ok: true, message: "Den nyeste version er klar." };
+      if (!healthResp.ok || !health.ok) {
+        sawOffline = true;
+      } else if (sawOffline && health.instance_id && health.instance_id !== previousInstanceId) {
+        let result = { ok: true, code: "updated" };
         try {
           const resultResp = await fetchWithTimeout("/api/update/result", { cache: "no-store" });
           const resultData = await resultResp.json();
           if (resultData.result) result = resultData.result;
         } catch (_ignored) { }
+        try {
+          const statusResp = await fetchWithTimeout("/api/update/status", { cache: "no-store" });
+          const statusData = await statusResp.json();
+          const update = statusData.update || {};
+          if (result.ok && update.update_available) {
+            result = { ok: false, code: "update_failed" };
+          }
+        } catch (_ignored) { }
         try { sessionStorage.setItem(UPDATE_RESULT_KEY, JSON.stringify(result)); } catch (_ignored) { }
         window.location.reload();
         return;
       }
-    } catch (_ignored) { }
+    } catch (_ignored) {
+      sawOffline = true;
+    }
     await new Promise((resolve) => setTimeout(resolve, 1800));
   }
   showUpdateBox(
