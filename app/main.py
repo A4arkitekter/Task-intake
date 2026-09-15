@@ -26,7 +26,6 @@ from app.config import (
     MAX_RECORD_SECONDS,
     REMIND_AT,
     REMIND_TO,
-    APP_PASSWORD,
     APP_URL,
     SECRET_KEY,
     STATIC_DIR,
@@ -223,9 +222,9 @@ def api_apply_update(request: Request):
 
 
 @app.get("/api/me")
-def me(request: Request) -> dict:
+def me() -> dict:
     return {
-        "authenticated": bool(request.session.get("user")),
+        "authenticated": True,
         "mail": mail_settings(),
         # Optageren i browseren skal kende serverens grænse, ikke gætte sin egen.
         "max_record_seconds": MAX_RECORD_SECONDS,
@@ -233,17 +232,12 @@ def me(request: Request) -> dict:
 
 
 @app.post("/api/login")
-def login(request: Request, payload: dict) -> dict:
-    password = str(payload.get("password") or "").strip()
-    if password != APP_PASSWORD:
-        raise HTTPException(status_code=401, detail="Forkert adgangskode")
-    request.session["user"] = True
+def login() -> dict:
     return {"ok": True}
 
 
 @app.post("/api/logout")
-def logout(request: Request) -> dict:
-    request.session.clear()
+def logout() -> dict:
     return {"ok": True}
 
 

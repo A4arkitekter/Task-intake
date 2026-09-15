@@ -15,7 +15,7 @@ Programmet venter, til filen er færdig med at synke, og flytter den derefter ud
 
 ## Indbakken
 
-Åbn [http://127.0.0.1:8000](http://127.0.0.1:8000) hvis browseren ikke kommer af sig selv. Log ind med den adgangskode, setup viste.
+Åbn [http://127.0.0.1:8000](http://127.0.0.1:8000) hvis browseren ikke kommer af sig selv. Der er intet login.
 
 Til venstre ligger usorterede optagelser. Til højre ser du teksten og ét forslag:
 

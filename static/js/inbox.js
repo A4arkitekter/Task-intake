@@ -26,7 +26,6 @@ export async function renderInbox(root) {
         </a>
         <div class="topbar-actions">
           <a class="primary" href="/ny-ide">Ny ide</a>
-          <button class="linkish" id="logout" type="button">Log ud</button>
         </div>
       </header>
       <div id="update-box" class="update-box" hidden>
@@ -42,10 +41,6 @@ export async function renderInbox(root) {
       </div>
     </div>
   `;
-  root.querySelector("#logout").addEventListener("click", async () => {
-    await api("/api/logout", { method: "POST" });
-    location.href = "/login";
-  });
   root.querySelector("#update-btn").addEventListener("click", applyUpdate);
   await refresh(root);
   await initUpdateBanner();

@@ -51,9 +51,8 @@ C:\Users\<windows-login>\Dropbox\Apps\ASRRecordings
 
    Tryk Enter, hvis stien er rigtig. Ellers skriv RecUps mappe, fx `Dropbox\Apps\RecUp Memos`. Android bruger ASR Voice Recorder; iPhone bruger RecUp. ASR findes ikke i App Store.
 4. Skriv din **arbejdmail**. Den bruges som kopi på Wrike-mails og til den daglige rykker, når der ligger usorterede idéer.
-5. Gem den adgangskode, setup viser én gang. Den står også i den lokale `.env`, som aldrig må kopieres til NAS eller GitHub.
-6. Vent, til opsætningen er færdig.
-7. Dobbeltklik `SYSTEMTJEK.bat`. Ved fejl sendes kun `fejlrapport.zip` til IT - ikke `.env` og ikke lyd.
+5. Vent, til opsætningen er færdig.
+6. Dobbeltklik `SYSTEMTJEK.bat`. Ved fejl sendes kun `fejlrapport.zip` til IT - ikke `.env` og ikke lyd.
 
 GPU er en bonus. Uden NVIDIA kører Whisper og Ollama på CPU. Programmet starter ved login, så Dropbox-filer bliver behandlet uden at du åbner et sort vindue.
 

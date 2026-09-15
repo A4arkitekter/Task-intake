@@ -7,8 +7,6 @@ export async function api(path, options = {}) {
     headers: { ...(options.headers || {}) },
   });
   if (response.status === 401 && path !== "/api/login") {
-    const next = encodeURIComponent(location.pathname + location.search);
-    location.href = `/login?next=${next}`;
     throw new Error("auth");
   }
   let data = null;

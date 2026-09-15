@@ -157,7 +157,6 @@ function Write-ColleagueEnv([bool]$UseGpu) {
         return
     }
     Copy-Item -LiteralPath (Join-Path $PSScriptRoot ".env.example") -Destination $envPath
-    $password = New-Secret 12
     $secret = New-Secret 40
     $inbox = Get-DefaultInboxDir
     $mail = ""
@@ -184,7 +183,6 @@ function Write-ColleagueEnv([bool]$UseGpu) {
     $modelDir = Join-Path $PSScriptRoot "data\models"
     $lines = Get-Content -LiteralPath $envPath
     $replacements = @{
-        "APP_PASSWORD=skift-mig" = "APP_PASSWORD=$password"
         "SECRET_KEY=skift-denne-til-en-lang-tilfaeldig-streng" = "SECRET_KEY=$secret"
         "WHISPER_DEVICE=cpu" = "WHISPER_DEVICE=$device"
         "WHISPER_COMPUTE_TYPE=int8" = "WHISPER_COMPUTE_TYPE=$compute"
@@ -201,8 +199,6 @@ function Write-ColleagueEnv([bool]$UseGpu) {
     }
     $updated += "MODEL_DIR=$modelDir"
     Set-Content -LiteralPath $envPath -Value $updated -Encoding utf8
-    Write-Status "Adgangskoden til indbakken er: $password" Yellow
-    Write-Status "Gem den. Den står også i den lokale .env, som aldrig må kopieres til NAS eller GitHub." Yellow
     if (-not (Test-Path -LiteralPath $inbox -PathType Container)) {
         Write-Status "Dropbox-mappen $inbox findes endnu ikke. Det er i orden — sæt ASR (Android) eller RecUp (iPhone) og Dropbox op bagefter." Yellow
     }

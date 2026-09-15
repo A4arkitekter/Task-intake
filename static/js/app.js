@@ -1,12 +1,11 @@
 import { renderInbox } from "./inbox.js";
 import { renderCapture } from "./capture.js";
-import { renderLogin, ensureAuth } from "./login.js";
+import { ensureAuth } from "./login.js";
 
 const root = document.querySelector("#app");
 
 function route() {
   const path = location.pathname.replace(/\/+$/, "") || "/";
-  if (path === "/login") return renderLogin(root);
   if (path === "/ny-ide") {
     return ensureAuth().then((me) => {
       if (me) renderCapture(root, me);

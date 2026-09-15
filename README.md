@@ -6,7 +6,7 @@ Kollegainstallation (IT): se [INSTALLATIONSVEJLEDNING.pdf](INSTALLATIONSVEJLEDNI
 
 ## Sådan kører du det
 
-1. Kopiér `.env.example` til `.env` og sæt `APP_PASSWORD` og `SECRET_KEY`.
+1. Kopiér `.env.example` til `.env` og sæt `SECRET_KEY`.
 2. Mail (standard er sat):
 
    - `MAIL_TO=wrike@wrike.com`

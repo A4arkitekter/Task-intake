@@ -49,7 +49,6 @@ TOAST_AUMID = os.getenv("TOAST_AUMID", "Indtagelse.Idebakke").strip()
 AUTO_OPEN = os.getenv("AUTO_OPEN", "1").lower() not in {"0", "false", "no"}
 AUTO_OPEN_IDLE_SEC = float(os.getenv("AUTO_OPEN_IDLE_SEC", "90"))
 
-APP_PASSWORD = (os.getenv("APP_PASSWORD") or "skift-mig").strip()
 SECRET_KEY = (os.getenv("SECRET_KEY") or "dev-secret-change-me").strip()
 
 WHISPER_MODEL = os.getenv("WHISPER_MODEL", "small")

@@ -79,23 +79,17 @@ class ApiTests(unittest.TestCase):
         self.assertEqual(response.json()["mail"]["to"], "wrike@wrike.com")
         self.assertEqual(response.json()["mail"]["cc"], "ep@a4.dk")
 
-    def test_login_and_inbox(self):
-        denied = self.client.get("/api/inbox")
-        self.assertEqual(denied.status_code, 401)
-        bad = self.client.post("/api/login", json={"password": "forkert"})
-        self.assertEqual(bad.status_code, 401)
-        ok = self.client.post("/api/login", json={"password": "test-pass"})
-        self.assertEqual(ok.status_code, 200)
-        padded = self.client.post("/api/login", json={"password": "  test-pass  "})
-        self.assertEqual(padded.status_code, 200)
+    def test_inbox_opens_without_login(self):
         inbox = self.client.get("/api/inbox")
         self.assertEqual(inbox.status_code, 200)
         self.assertIsInstance(inbox.json()["captures"], list)
+        me = self.client.get("/api/me")
+        self.assertTrue(me.json()["authenticated"])
+        self.assertEqual(self.client.post("/api/login", json={}).status_code, 200)
 
     def test_a_hidden_tab_does_not_count_as_watching(self):
         # En skjult baggrundsfane henter stadig listen. Talte den som en seer, ville
         # indbakken aldrig åbne sig selv — og det var netop fejlen.
-        self.client.post("/api/login", json={"password": "test-pass"})
         activity.reset()
         self.client.get("/api/inbox?visible=0")
         self.assertEqual(activity.seconds_since_inbox_seen(), float("inf"))
@@ -110,7 +104,6 @@ class ApiTests(unittest.TestCase):
     def test_approve_returns_mailto(self):
         from app import db
 
-        self.client.post("/api/login", json={"password": "test-pass"})
         capture = db.create_capture(
             source="pwa",
             audio_path="missing.webm",
@@ -142,7 +135,6 @@ class ApiTests(unittest.TestCase):
 
         from app import db
 
-        self.client.post("/api/login", json={"password": "test-pass"})
         capture = db.create_capture(
             source="pwa",
             audio_path="missing.webm",
@@ -175,7 +167,6 @@ class ApiTests(unittest.TestCase):
     def test_inbox_collapses_extra_proposals(self):
         from app import db
 
-        self.client.post("/api/login", json={"password": "test-pass"})
         capture = db.create_capture(
             source="pwa",
             audio_path="missing.webm",
@@ -213,7 +204,6 @@ class ApiTests(unittest.TestCase):
 
         from app import db
 
-        self.client.post("/api/login", json={"password": "test-pass"})
         audio = Path(_tmp) / "fejlet.m4a"
         audio.write_bytes(b"lyden ligger stadig paa disken")
         capture = db.create_capture(
@@ -236,7 +226,6 @@ class ApiTests(unittest.TestCase):
     def test_retry_is_refused_when_nothing_failed(self):
         from app import db
 
-        self.client.post("/api/login", json={"password": "test-pass"})
         capture = db.create_capture(
             source="pwa",
             audio_path="missing.webm",
@@ -250,7 +239,6 @@ class ApiTests(unittest.TestCase):
     def test_retry_is_refused_when_the_audio_is_gone(self):
         from app import db
 
-        self.client.post("/api/login", json={"password": "test-pass"})
         capture = db.create_capture(
             source="sync",
             audio_path="findes-ikke.m4a",

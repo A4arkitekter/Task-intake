@@ -127,6 +127,8 @@ class RepositoryContractTests(unittest.TestCase):
         self.assertIn("Tryk Enter for at bruge den, eller skriv en anden sti", script)
         self.assertIn("Din arbejdmail", script)
         self.assertIn("gyldig mailadresse", script)
+        self.assertNotIn("Adgangskoden til indbakken", script)
+        self.assertNotIn("APP_PASSWORD=$password", script)
         self.assertIn("data\\audio", script)
         self.assertIn("data\\behandlet", script)
         self.assertIn("/NORESTART", script)

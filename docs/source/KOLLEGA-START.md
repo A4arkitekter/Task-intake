@@ -62,7 +62,7 @@ Forventet indhold i `runtime/`:
 
 1. Dobbeltklik den lokale `SETUP.bat`.
 2. Godkend eventuelle Windows-vinduer, der dukker op bag kommandovinduet.
-3. Setup viser optagelsesstien. Den vælger den Dropbox-mappe, der findes (ASR `Apps\ASRRecordings` eller RecUp `Apps\RecUp Memos` / `Apps\RecUp`), og lader dig rette den. Derefter skal kollegaens arbejdmail udfyldes (`MAIL_CC` / `REMIND_TO`). Adgangskoden vises én gang.
+3. Setup viser optagelsesstien. Den vælger den Dropbox-mappe, der findes (ASR `Apps\ASRRecordings` eller RecUp `Apps\RecUp Memos` / `Apps\RecUp`), og lader dig rette den. Derefter skal kollegaens arbejdmail udfyldes (`MAIL_CC` / `REMIND_TO`).
 4. Vent, til der står at opsætningen er færdig.
 5. Dobbeltklik `SYSTEMTJEK.bat`.
 
