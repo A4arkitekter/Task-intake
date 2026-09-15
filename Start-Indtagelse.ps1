@@ -2,8 +2,20 @@
 
 $ErrorActionPreference = "Stop"
 Set-Location $PSScriptRoot
+$startLog = Join-Path $PSScriptRoot "start-log.txt"
+
+function Write-StartLog([string]$Message) {
+    try {
+        if ((Test-Path -LiteralPath $startLog -PathType Leaf) -and ((Get-Item -LiteralPath $startLog).Length -gt 256KB)) {
+            $kept = Get-Content -LiteralPath $startLog -Tail 80 -ErrorAction SilentlyContinue
+            Set-Content -LiteralPath $startLog -Value $kept -Encoding UTF8
+        }
+        Add-Content -LiteralPath $startLog -Value "$(Get-Date -Format 'yyyy-MM-ddTHH:mm:ss') $Message" -Encoding UTF8
+    } catch { }
+}
 
 function Stop-Start([string]$Message) {
+    Write-StartLog "FEJL: $Message"
     Write-Host ""
     Write-Host "FEJL: $Message" -ForegroundColor Red
     exit 1
@@ -38,6 +50,13 @@ Write-Host " Indtagelse"
 Write-Host "========================================"
 Write-Host ""
 
+$isGitCheckout = Test-Path -LiteralPath (Join-Path $PSScriptRoot ".git") -PathType Container
+if ($isGitCheckout -and $NoBrowser) {
+    Write-StartLog "Autostart ignoreret i Git-mappen $PSScriptRoot. Brug den installerede kopi, typisk C:\apps\task-intake."
+    exit 0
+}
+Write-StartLog "Start NoBrowser=$NoBrowser git=$isGitCheckout"
+
 $runtimeManifest = Join-Path $PSScriptRoot "runtime\runtime-manifest.json"
 $venvPython = Join-Path $PSScriptRoot ".venv\Scripts\python.exe"
 
@@ -59,9 +78,11 @@ if ($LASTEXITCODE -ne 0 -or -not [int]::TryParse(("$portText").Trim(), [ref]$por
 $url = "http://127.0.0.1:$port"
 
 $stateCheck = Join-Path $PSScriptRoot "Test-InstallState.ps1"
-& (Join-Path $PSHOME "powershell.exe") -NoProfile -ExecutionPolicy Bypass -File $stateCheck
-if ($LASTEXITCODE -ne 0) {
-    Stop-Start "Installationen skal opdateres. Koer SETUP.bat en gang, og start derefter igen."
+if (-not $isGitCheckout) {
+    & (Join-Path $PSHOME "powershell.exe") -NoProfile -ExecutionPolicy Bypass -File $stateCheck
+    if ($LASTEXITCODE -ne 0) {
+        Stop-Start "Installationen skal opdateres. Koer SETUP.bat en gang, og start derefter igen."
+    }
 }
 
 $health = $null

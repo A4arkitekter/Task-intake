@@ -188,6 +188,15 @@ class RepositoryContractTests(unittest.TestCase):
         self.assertIn("-NoBrowser", script)
         self.assertIn("powershell.exe", script)
         self.assertNotIn("pythonw.exe", script.lower())
+        self.assertIn("Autostart maa ikke saettes fra Git-mappen", script)
+        self.assertIn("PT30S", script)
+        self.assertIn("InstallRoot", script)
+
+    def test_hidden_autostart_skips_git_checkout_and_writes_a_start_log(self):
+        script = (ROOT / "Start-Indtagelse.ps1").read_text(encoding="utf-8-sig")
+        self.assertIn("start-log.txt", script)
+        self.assertIn("Autostart ignoreret i Git-mappen", script)
+        self.assertIn("$isGitCheckout -and $NoBrowser", script)
 
     def test_post_update_state_check_reregisters_autostart(self):
         script = (ROOT / "Test-InstallState.ps1").read_text(encoding="utf-8-sig")

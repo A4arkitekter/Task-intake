@@ -35,6 +35,8 @@ $forbiddenPatterns = @(
     '\.sqlite3',
     '(^|/)install-state\.json$',
     '(^|/)setup-log\.txt$',
+    '(^|/)start-log\.txt$',
+    '(^|/)autostart-log\.txt$',
     '(^|/)systemtjek\.txt$',
     '(^|/)fejlrapport\.zip$',
     '(^|/)update-source\.txt$',
