@@ -203,6 +203,8 @@ class RepositoryContractTests(unittest.TestCase):
         self.assertIn("$isGitCheckout -and $NoBrowser", script)
         self.assertIn("Stop-LeftoverIntakePython", script)
         self.assertIn("Local\\Indtagelse-", script)
+        self.assertIn("setup.ps1", script)
+        self.assertIn("-NonInteractive", script)
 
     def test_post_update_state_check_reregisters_autostart(self):
         script = (ROOT / "Test-InstallState.ps1").read_text(encoding="utf-8-sig")
