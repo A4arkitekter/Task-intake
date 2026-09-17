@@ -102,7 +102,7 @@ def _maybe_open_browser() -> None:
     flag = os.environ.get("OPEN_BROWSER", "").strip().lower()
     if flag not in {"1", "true", "yes", "on"}:
         return
-    url = APP_URL if "://" in APP_URL else f"http://127.0.0.1:8000/"
+    url = APP_URL if "://" in APP_URL else f"http://127.0.0.1:{PORT}/"
     threading.Timer(1.2, lambda: webbrowser.open(url)).start()
 
 

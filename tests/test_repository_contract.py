@@ -14,6 +14,23 @@ UPDATE_PATH = r"\\a4diskstation4\A4software\task-intake\updates"
 
 
 class RepositoryContractTests(unittest.TestCase):
+    def test_project_http_port_defaults_to_7000_and_scripts_follow_config(self):
+        config = (ROOT / "app" / "config.py").read_text(encoding="utf-8")
+        self.assertIn('os.getenv("APP_PORT", "7000")', config)
+
+        main = (ROOT / "app" / "main.py").read_text(encoding="utf-8")
+        self.assertIn('f"http://127.0.0.1:{PORT}/"', main)
+
+        for relative in (
+            "README.md",
+            "docs/source/BRUGERVEJLEDNING.md",
+            "scripts/install-autostart.ps1",
+            "scripts/start-tunnel.ps1",
+            "scripts/stop.ps1",
+        ):
+            text = (ROOT / relative).read_text(encoding="utf-8-sig")
+            self.assertNotIn("127.0.0.1:8000", text, relative)
+
     def test_git_contents_contract(self):
         result = subprocess.run(
             [

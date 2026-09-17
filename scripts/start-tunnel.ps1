@@ -1,4 +1,4 @@
-﻿# Starter indtagelse på http://127.0.0.1:8000 og publicerer HTTPS via Cloudflare Tunnel.
+﻿# Starter indtagelse på den konfigurerede APP_PORT og publicerer HTTPS via Cloudflare Tunnel.
 # Kræver: cloudflared i PATH (winget install Cloudflare.cloudflared)
 $ErrorActionPreference = "Stop"
 Set-Location $PSScriptRoot\..
@@ -14,4 +14,9 @@ if (-not (Test-Path $python)) {
 
 Start-Process -FilePath $python -ArgumentList "-m", "app" -WorkingDirectory $PWD
 Start-Sleep -Seconds 2
-cloudflared tunnel --url http://127.0.0.1:8000
+$portText = & $python -c "from app.config import PORT; print(PORT)"
+$port = 0
+if ($LASTEXITCODE -ne 0 -or -not [int]::TryParse(("$portText").Trim(), [ref]$port)) {
+    Write-Error "APP_PORT i .env er ugyldig."
+}
+cloudflared tunnel --url "http://127.0.0.1:$port"

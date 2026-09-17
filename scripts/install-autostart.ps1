@@ -66,7 +66,7 @@ try {
         -Trigger $trigger `
         -Settings $settings `
         -Principal $principal `
-        -Description "Starter stemmeindtagelsen på http://127.0.0.1:8000" `
+        -Description "Starter stemmeindtagelsen lokalt" `
         -Force | Out-Null
     $registeredTask = $true
 } catch {

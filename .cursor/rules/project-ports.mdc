@@ -1,0 +1,11 @@
+---
+description: Portkonvention for Task-intake
+alwaysApply: true
+---
+
+# Porte
+
+- Brug port 7000 eller højere til projektets egne HTTP-services.
+- Task-intake har standarden `APP_PORT=7000`.
+- Hårdkod ikke porten andre steder; læs den fra `app.config.PORT` eller `.env`.
+- Port 8000 må ikke introduceres igen, da den kan kollidere med Cursor og andre udviklingsservices.

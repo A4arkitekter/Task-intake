@@ -21,7 +21,7 @@ DB_PATH = _path_env("DB_PATH", DATA_DIR / "intake.sqlite3")
 STATIC_DIR = ROOT / "static"
 ICON_DIR = STATIC_DIR / "icons"
 
-PORT = int(os.getenv("APP_PORT", "8000"))
+PORT = int(os.getenv("APP_PORT", "7000"))
 APP_URL = os.getenv("APP_URL", f"http://127.0.0.1:{PORT}/")
 DEV_RELOAD = os.getenv("DEV_RELOAD", "0").lower() not in {"0", "false", "no"}
 

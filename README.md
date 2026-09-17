@@ -59,7 +59,7 @@ I tomgang holder programmet kun et par hundrede megabyte CUDA-kontekst, ikke mod
 
 Overskrifter skrives af lokal Ollama (`qwen2.5:14b` som standard — ikke ChatGPT). Modellen skal køre: `ollama serve` og `ollama pull qwen2.5:14b`. Uden Ollama falder overskriften tilbage til rå Whisper-tekst. I indbakken kan du trykke **Genskab overskrift** på eksisterende kort.
 
-- Computer: [http://127.0.0.1:8000](http://127.0.0.1:8000) — indbakken. **Åbn i Outlook** udfylder emne + brødtekst; du trykker Send. Hvis Outlook ikke åbner, brug **Hent .eml**.
+- Computer: [http://127.0.0.1:7000](http://127.0.0.1:7000) — indbakken. **Åbn i Outlook** udfylder emne + brødtekst; du trykker Send. Hvis Outlook ikke åbner, brug **Hent .eml**. Er port 7000 optaget, kan `APP_PORT` i `.env` sættes til en anden port fra 7000 og op.
 
 ## Telefonen: optag og lad mappen synke
 

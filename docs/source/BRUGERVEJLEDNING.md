@@ -15,7 +15,7 @@ Programmet venter, til filen er færdig med at synke, og flytter den derefter ud
 
 ## Indbakken
 
-Åbn [http://127.0.0.1:8000](http://127.0.0.1:8000) hvis browseren ikke kommer af sig selv. Der er intet login.
+Åbn [http://127.0.0.1:7000](http://127.0.0.1:7000) hvis browseren ikke kommer af sig selv. Der er intet login. Hvis IT har valgt en anden port fra 7000 og op, bruges den adresse i stedet.
 
 Til venstre ligger usorterede optagelser. Til højre ser du teksten og ét forslag:
 
