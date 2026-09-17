@@ -5,7 +5,9 @@ alwaysApply: true
 
 # Porte
 
-- Brug port 7000 eller højere til projektets egne HTTP-services.
+- Følg det fælles register i `C:\Dev\PORTS.md`.
+- Task-intake ejer blokken `7000-7009`.
 - Task-intake har standarden `APP_PORT=7000`.
 - Hårdkod ikke porten andre steder; læs den fra `app.config.PORT` eller `.env`.
-- Port 8000 må ikke introduceres igen, da den kan kollidere med Cursor og andre udviklingsservices.
+- Brug aldrig en værtsport i `8000-8999`; det interval tilhører Cursor-projekter.
+- Container-interne porte er undtaget, men publicerede Windows-porte skal ligge i projektets blok.

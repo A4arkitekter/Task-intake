@@ -87,6 +87,13 @@ class RepositoryContractTests(unittest.TestCase):
         self.assertIn(UPDATE_PATH, script)
         self.assertTrue((ROOT / "UDGIV OPDATERING.bat").is_file())
 
+        launcher = (ROOT / "UDGIV OPDATERING.bat").read_text(encoding="utf-8-sig")
+        self.assertIn("tools\\publish_update.py", launcher)
+        self.assertNotIn("Publish-Update.ps1", launcher)
+        publisher = (ROOT / "tools" / "publish_update.py").read_text(encoding="utf-8")
+        self.assertIn("git(\"status\", \"--porcelain\")", publisher)
+        self.assertIn('destination / "latest.json"', publisher)
+
     def test_system_check_tells_user_to_send_only_safe_report(self):
         script = (ROOT / "SYSTEMTJEK.bat").read_text(encoding="utf-8-sig")
         self.assertIn("Send kun fejlrapport.zip til IT", script)

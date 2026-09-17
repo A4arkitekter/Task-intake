@@ -20,7 +20,8 @@ $requiredFiles = @(
     "static/brand/a4-logo.svg",
     "INSTALLATIONSVEJLEDNING.pdf",
     "BRUGERVEJLEDNING.pdf",
-    "tools/generate_guides_pdf.py"
+    "tools/generate_guides_pdf.py",
+    "tools/publish_update.py"
 )
 
 $forbiddenPatterns = @(
