@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import json
 import os
-import shutil
 import subprocess
+import sys
 import threading
 import time
 import uuid
@@ -11,7 +11,7 @@ from pathlib import Path
 
 from app.config import ROOT
 
-UPDATE_SCRIPT_PATH = ROOT / "Update-Intake.ps1"
+UPDATE_SCRIPT_PATH = ROOT / "tools" / "apply_update.py"
 UPDATE_RESULT_PATH = ROOT / ".browser-update-result.json"
 UPDATE_RESTART_EXIT_CODE = 42
 UPDATE_ACTION_TOKEN = uuid.uuid4().hex
@@ -20,14 +20,6 @@ SERVER_INSTANCE_ID = uuid.uuid4().hex
 update_shutdown_requested = threading.Event()
 _update_status_lock = threading.Lock()
 _update_status_cache: dict = {"checked_at": 0.0, "value": None}
-
-
-def _powershell_executable() -> str:
-    system_root = os.environ.get("SystemRoot", r"C:\Windows")
-    candidate = os.path.join(
-        system_root, "System32", "WindowsPowerShell", "v1.0", "powershell.exe"
-    )
-    return candidate if os.path.isfile(candidate) else (shutil.which("powershell") or candidate)
 
 
 def is_developer_checkout() -> bool:
@@ -53,11 +45,9 @@ def check_update_status(force: bool = False) -> dict:
             return dict(cached)
 
     command = [
-        _powershell_executable(),
-        "-NoProfile",
-        "-ExecutionPolicy", "Bypass",
-        "-File", str(UPDATE_SCRIPT_PATH),
-        "-CheckOnly",
+        sys.executable,
+        str(UPDATE_SCRIPT_PATH),
+        "--check-only",
     ]
     try:
         result = subprocess.run(

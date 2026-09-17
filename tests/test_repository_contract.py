@@ -69,10 +69,11 @@ class RepositoryContractTests(unittest.TestCase):
 
     def test_installed_start_handles_browser_requested_update_and_restart(self):
         script = (ROOT / "Start-Indtagelse.ps1").read_text(encoding="utf-8-sig")
-        self.assertIn("Update-Intake.ps1", script)
+        self.assertIn(r"tools\apply_update.py", script)
         self.assertIn("$exitCode -ne 42", script)
         self.assertIn("Write-BrowserUpdateResult", script)
         self.assertNotIn("-Automatic", script)
+        self.assertNotIn('$PSHOME "powershell.exe"', script)
 
         updater = (ROOT / "Update-Intake.ps1").read_text(encoding="utf-8-sig")
         self.assertIn(UPDATE_PATH, updater)
@@ -269,6 +270,7 @@ def make_start_fixture(tmp_path, port):
     (project / ".venv" / "Scripts").mkdir(parents=True)
     (project / "runtime").mkdir()
     (project / "app").mkdir()
+    (project / "tools").mkdir()
     shutil.copy2(ROOT / "Start-Indtagelse.ps1", project / "Start-Indtagelse.ps1")
     shutil.copy2(Path(sys.executable), project / ".venv" / "Scripts" / "python.exe")
     source_venv = Path(sys.executable).parent.parent
@@ -386,10 +388,10 @@ class StartFlowTests(unittest.TestCase):
                 "print('FAKE UPDATED APP STARTED')\n",
                 encoding="utf-8",
             )
-            (project / "Update-Intake.ps1").write_text(
-                "Set-Content -LiteralPath (Join-Path $PSScriptRoot 'update-applied.txt') -Value 'ok'\n"
-                "exit 0\n",
-                encoding="ascii",
+            (project / "tools" / "apply_update.py").write_text(
+                "from pathlib import Path\n"
+                "Path(__file__).resolve().parents[1].joinpath('update-applied.txt').write_text('ok')\n",
+                encoding="utf-8",
             )
 
             result = run_start_fixture(project)

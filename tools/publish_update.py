@@ -27,6 +27,7 @@ REQUIRED_FILES = (
     ".gitattributes", "install-contract.json", "runtime-contract.json",
     "requirements.txt", "requirements-lock.txt", "requirements-gpu.txt",
     "requirements-dev.txt", "tools/Install-Helpers.ps1", "tools/publish_update.py",
+    "tools/apply_update.py",
     "docs/source/KOLLEGA-START.md", "docs/source/INSTALLATIONSVEJLEDNING.md",
     "docs/source/BRUGERVEJLEDNING.md", "01-START-HER.md",
     "static/brand/a4-logo.svg", "INSTALLATIONSVEJLEDNING.pdf",

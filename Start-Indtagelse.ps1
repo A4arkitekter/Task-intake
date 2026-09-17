@@ -116,11 +116,11 @@ if (-not $startMutex.WaitOne(0)) {
 
 $stateCheck = Join-Path $PSScriptRoot "Test-InstallState.ps1"
 if (-not $isGitCheckout) {
-    & (Join-Path $PSHOME "powershell.exe") -NoProfile -ExecutionPolicy Bypass -File $stateCheck
+    & $stateCheck
     if ($LASTEXITCODE -ne 0) {
         Write-StartLog "Installationskrav aendret. Koerer setup automatisk."
         Write-Host "Opdateringen kraever en automatisk tilpasning af installationen..." -ForegroundColor Yellow
-        & (Join-Path $PSHOME "powershell.exe") -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot "setup.ps1") -NonInteractive
+        & (Join-Path $PSScriptRoot "setup.ps1") -NonInteractive
         if ($LASTEXITCODE -ne 0) {
             Stop-Start "Installationen skal opdateres. Koer SETUP.bat en gang, og start derefter igen."
         }
@@ -155,8 +155,8 @@ while ($true) {
     Write-Host ""
     Write-Host "Browseren har bedt om en opdatering. Vent mens programmet opdateres..." -ForegroundColor Cyan
     Stop-LeftoverIntakePython $venvPython
-    $updater = Join-Path $PSScriptRoot "Update-Intake.ps1"
-    & (Join-Path $PSHOME "powershell.exe") -NoProfile -ExecutionPolicy Bypass -File $updater
+    $updater = Join-Path $PSScriptRoot "tools\apply_update.py"
+    & $venvPython $updater
     $updateExitCode = $LASTEXITCODE
     if ($updateExitCode -ne 0) {
         Write-BrowserUpdateResult $false "update_failed"
@@ -164,10 +164,10 @@ while ($true) {
         continue
     }
 
-    & (Join-Path $PSHOME "powershell.exe") -NoProfile -ExecutionPolicy Bypass -File $stateCheck -Quiet
+    & $stateCheck -Quiet
     if ($LASTEXITCODE -ne 0) {
         Write-Host "Opdateringen kraever en automatisk tilpasning af installationen..." -ForegroundColor Yellow
-        & (Join-Path $PSHOME "powershell.exe") -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot "setup.ps1") -NonInteractive
+        & (Join-Path $PSScriptRoot "setup.ps1") -NonInteractive
         if ($LASTEXITCODE -ne 0) {
             Write-BrowserUpdateResult $false "setup_failed"
             Stop-Start "Opdateringen kraever SETUP.bat."
