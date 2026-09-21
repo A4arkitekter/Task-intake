@@ -14,6 +14,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 DATA_DIR = ROOT / "data"
 LOG_PATH = DATA_DIR / "logs" / "supervisor.log"
+CHILD_LOG_PATH = DATA_DIR / "logs" / "service-output.log"
 LOCK_PATH = DATA_DIR / "service-supervisor.lock"
 UPDATE_RESULT_PATH = ROOT / ".browser-update-result.json"
 RESTART_EXIT_CODE = 42
@@ -53,12 +54,27 @@ def write_update_result(ok: bool, code: str) -> None:
 def run_child(arguments: list[str]) -> int:
     env = os.environ.copy()
     env["OPEN_BROWSER"] = "0"
-    return subprocess.run(
-        arguments,
-        cwd=ROOT,
-        env=env,
-        creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
-    ).returncode
+    CHILD_LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
+    with CHILD_LOG_PATH.open("a", encoding="utf-8") as output:
+        output.write(f"\n{datetime.now().isoformat(timespec='seconds')} starter: {' '.join(arguments)}\n")
+        output.flush()
+        return subprocess.run(
+            arguments,
+            cwd=ROOT,
+            env=env,
+            stdout=output,
+            stderr=subprocess.STDOUT,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+        ).returncode
+
+
+def console_python() -> str:
+    executable = Path(sys.executable)
+    if executable.name.lower() == "pythonw.exe":
+        candidate = executable.with_name("python.exe")
+        if candidate.is_file():
+            return str(candidate)
+    return str(executable)
 
 
 def supervise() -> int:
@@ -68,15 +84,16 @@ def supervise() -> int:
         return 0
 
     log(f"Supervisor startet pid={os.getpid()}")
+    python = console_python()
     try:
         while True:
-            exit_code = run_child([sys.executable, "-m", "app"])
+            exit_code = run_child([python, "-m", "app"])
             if exit_code == 0:
                 log("Appen blev stoppet normalt; supervisor stopper.")
                 return 0
             if exit_code == RESTART_EXIT_CODE:
                 log("Browseren bad om opdatering.")
-                update_code = run_child([sys.executable, str(ROOT / "tools" / "apply_update.py")])
+                update_code = run_child([python, str(ROOT / "tools" / "apply_update.py")])
                 if update_code == 0:
                     write_update_result(True, "updated")
                     log("Opdatering gennemført; appen genstartes.")

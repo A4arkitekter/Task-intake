@@ -7,6 +7,13 @@ from tools import install_autostart, service_supervisor
 
 
 class SupervisorTests(unittest.TestCase):
+    def test_pythonw_supervisor_uses_console_python_for_the_server(self):
+        with (
+            patch.object(service_supervisor.sys, "executable", r"C:\app\.venv\Scripts\pythonw.exe"),
+            patch.object(Path, "is_file", return_value=True),
+        ):
+            self.assertTrue(service_supervisor.console_python().endswith("python.exe"))
+
     def test_unexpected_app_failure_is_restarted(self):
         lock = MagicMock()
         with (
