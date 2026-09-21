@@ -210,16 +210,16 @@ class RepositoryContractTests(unittest.TestCase):
         self.assertIn('$PSScriptRoot.StartsWith("\\\\")', script)
         self.assertIn("maa ikke koeres fra NAS'en", script)
 
-    def test_autostart_launches_the_wrapper_not_pythonw(self):
+    def test_autostart_launches_the_python_supervisor(self):
         script = (ROOT / "scripts" / "install-autostart.ps1").read_text(encoding="utf-8-sig")
-        self.assertIn("Start-Indtagelse.ps1", script)
-        self.assertIn("-NoBrowser", script)
-        self.assertIn("powershell.exe", script)
-        self.assertNotIn("pythonw.exe", script.lower())
+        self.assertIn(r"tools\install_autostart.py", script)
+        self.assertNotIn("powershell.exe", script.lower())
         self.assertIn("Autostart maa ikke saettes fra Git-mappen", script)
-        self.assertIn("PT30S", script)
         self.assertIn("InstallRoot", script)
-        self.assertIn("ingen Startup/Run", script)
+        installer = (ROOT / "tools" / "install_autostart.py").read_text(encoding="utf-8")
+        self.assertIn("pythonw.exe", installer)
+        self.assertIn("service_supervisor.py", installer)
+        self.assertIn('"ONLOGON"', installer)
 
     def test_hidden_autostart_skips_git_checkout_and_writes_a_start_log(self):
         script = (ROOT / "Start-Indtagelse.ps1").read_text(encoding="utf-8-sig")
@@ -233,7 +233,7 @@ class RepositoryContractTests(unittest.TestCase):
 
     def test_post_update_state_check_reregisters_autostart(self):
         script = (ROOT / "Test-InstallState.ps1").read_text(encoding="utf-8-sig")
-        self.assertIn("scripts\\install-autostart.ps1", script)
+        self.assertIn(r"tools\install_autostart.py", script)
         self.assertIn("if ($Quiet)", script)
 
     def test_inbox_exposes_update_and_restart_button(self):

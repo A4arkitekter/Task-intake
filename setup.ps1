@@ -352,11 +352,11 @@ try {
         & $venvPython -c "from app.winapp import register; register()"
     }
 
-    $autostart = Join-Path $PSScriptRoot "scripts\install-autostart.ps1"
+    $autostart = Join-Path $PSScriptRoot "tools\install_autostart.py"
     if (Test-Path -LiteralPath $autostart -PathType Leaf) {
-        & (Join-Path $PSHOME "powershell.exe") -NoProfile -ExecutionPolicy Bypass -File $autostart
+        & $venvPython $autostart --root $PSScriptRoot
         if ($LASTEXITCODE -ne 0) {
-            throw "Autostart kunne ikke sættes. Kør scripts\install-autostart.ps1 og se fejlen."
+            throw "Autostart kunne ikke sættes. Kør tools\install_autostart.py og se fejlen."
         }
     }
 

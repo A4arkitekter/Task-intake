@@ -35,9 +35,9 @@ foreach ($file in $requiredFiles) {
 }
 
 if ($Quiet) {
-    $autostart = Join-Path $PSScriptRoot "scripts\install-autostart.ps1"
+    $autostart = Join-Path $PSScriptRoot "tools\install_autostart.py"
     if (Test-Path -LiteralPath $autostart -PathType Leaf) {
-        & (Join-Path $PSHOME "powershell.exe") -NoProfile -ExecutionPolicy Bypass -File $autostart 1>$null 2>$null
+        & $venvPython $autostart --root $PSScriptRoot 1>$null 2>$null
     }
 }
 
