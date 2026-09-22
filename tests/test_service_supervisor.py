@@ -44,6 +44,7 @@ class AutostartTests(unittest.TestCase):
     def test_scheduled_task_targets_pythonw_supervisor(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
+            startup = root / "startup"
             pythonw = root / ".venv" / "Scripts" / "pythonw.exe"
             supervisor = root / "tools" / "service_supervisor.py"
             pythonw.parent.mkdir(parents=True)
@@ -51,14 +52,40 @@ class AutostartTests(unittest.TestCase):
             pythonw.write_bytes(b"")
             supervisor.write_text("# supervisor", encoding="utf-8")
             success = MagicMock(returncode=0, stdout="", stderr="")
-            with patch.object(install_autostart.subprocess, "run", return_value=success) as run:
+            with (
+                patch.object(install_autostart.subprocess, "run", return_value=success) as run,
+                patch.object(install_autostart, "startup_directory", return_value=startup),
+            ):
                 method = install_autostart.register(root)
-        self.assertEqual(method, "task")
+            launcher = (startup / install_autostart.STARTUP_FILE_NAME).read_text(encoding="utf-8")
+        self.assertEqual(method, "task+startup")
         create = run.call_args_list[0].args[0]
         self.assertIn("schtasks.exe", create)
         self.assertIn("ONLOGON", create)
         self.assertTrue(any("pythonw.exe" in value for value in create))
         self.assertTrue(any("service_supervisor.py" in value for value in create))
+        self.assertIn("pythonw.exe", launcher)
+        self.assertIn("service_supervisor.py", launcher)
+
+    def test_registry_fallback_also_keeps_startup_launcher(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            startup = root / "startup"
+            pythonw = root / ".venv" / "Scripts" / "pythonw.exe"
+            supervisor = root / "tools" / "service_supervisor.py"
+            pythonw.parent.mkdir(parents=True)
+            supervisor.parent.mkdir(parents=True)
+            pythonw.write_bytes(b"")
+            supervisor.write_text("# supervisor", encoding="utf-8")
+            failed_task = MagicMock(returncode=1, stdout="", stderr="denied")
+            registry_ok = MagicMock(returncode=0, stdout="", stderr="")
+            with (
+                patch.object(install_autostart.subprocess, "run", side_effect=[failed_task, registry_ok]),
+                patch.object(install_autostart, "startup_directory", return_value=startup),
+            ):
+                method = install_autostart.register(root)
+            self.assertTrue((startup / install_autostart.STARTUP_FILE_NAME).is_file())
+        self.assertEqual(method, "registry+startup")
 
 
 if __name__ == "__main__":

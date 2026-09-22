@@ -11,6 +11,7 @@ from pathlib import Path
 
 TASK_NAME = "Task-intake"
 RUN_KEY = r"HKCU\Software\Microsoft\Windows\CurrentVersion\Run"
+STARTUP_FILE_NAME = "Task-intake.cmd"
 
 
 def log(root: Path, message: str) -> None:
@@ -29,11 +30,36 @@ def command_paths(root: Path) -> tuple[Path, Path, str]:
     return pythonw, supervisor, command
 
 
+def startup_directory() -> Path:
+    appdata = os.environ.get("APPDATA")
+    if appdata:
+        return Path(appdata) / "Microsoft" / "Windows" / "Start Menu" / "Programs" / "Startup"
+    return Path.home() / "AppData" / "Roaming" / "Microsoft" / "Windows" / "Start Menu" / "Programs" / "Startup"
+
+
+def write_startup_launcher(root: Path, command: str) -> Path:
+    """Installér en synlig og vedvarende login-launcher uafhængigt af registreringsdatabasen."""
+    startup = startup_directory()
+    startup.mkdir(parents=True, exist_ok=True)
+    launcher = startup / STARTUP_FILE_NAME
+    contents = (
+        "@echo off\r\n"
+        f'cd /d "{root}"\r\n'
+        f'start "" /b {command}\r\n'
+        "exit /b 0\r\n"
+    )
+    temporary = launcher.with_suffix(".tmp")
+    temporary.write_text(contents, encoding="utf-8")
+    temporary.replace(launcher)
+    return launcher
+
+
 def register(root: Path) -> str:
     root = root.resolve()
     if (root / ".git").is_dir():
         raise RuntimeError("Autostart må ikke sættes fra Git-udviklingsmappen")
     _pythonw, _supervisor, command = command_paths(root)
+    launcher = write_startup_launcher(root, command)
 
     task = subprocess.run(
         [
@@ -52,8 +78,8 @@ def register(root: Path) -> str:
             capture_output=True,
             creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
         )
-        log(root, "Autostart registreret som planlagt opgave med Python-supervisor.")
-        return "task"
+        log(root, f"Autostart registreret som planlagt opgave og i Startup: {launcher}")
+        return "task+startup"
 
     fallback = subprocess.run(
         ["reg.exe", "add", RUN_KEY, "/v", TASK_NAME, "/t", "REG_SZ", "/d", command, "/f"],
@@ -66,8 +92,8 @@ def register(root: Path) -> str:
     if fallback.returncode:
         detail = fallback.stderr.strip() or task.stderr.strip() or "ukendt fejl"
         raise RuntimeError(f"Autostart kunne ikke registreres: {detail}")
-    log(root, "Planlagt opgave fejlede; autostart registreret i HKCU Run.")
-    return "registry"
+    log(root, f"Planlagt opgave fejlede; autostart registreret i HKCU Run og Startup: {launcher}")
+    return "registry+startup"
 
 
 def start_now(root: Path) -> int:
