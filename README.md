@@ -1,19 +1,13 @@
 # Stemmeindtagelse
 
-Tal en idé ind på telefonen. Sorter den ved computeren. Godkendte kort åbner en Outlook-mail til Wrike.
+Tal en idé ind på telefonen. Programmet opretter opgaven direkte i Wrike. Mappe og prioritet vælges i browseren.
 
-Kollegainstallation (IT): se [INSTALLATIONSVEJLEDNING.pdf](INSTALLATIONSVEJLEDNING.pdf) eller [01-START-HER.md](01-START-HER.md). Daglig brug: [BRUGERVEJLEDNING.pdf](BRUGERVEJLEDNING.pdf). Pak GitHub-ZIP ud i `C:\apps\task-intake`, kopiér `runtime` fra NAS, kør `SETUP.bat` og `SYSTEMTJEK.bat`. Opdateringer kommer bagefter via knappen i indbakken — kollegaen har ikke GitHub-adgang.
+Kollegainstallation (IT): se [INSTALLATIONSVEJLEDNING.pdf](INSTALLATIONSVEJLEDNING.pdf) eller [01-START-HER.md](01-START-HER.md). Daglig brug: [BRUGERVEJLEDNING.pdf](BRUGERVEJLEDNING.pdf). Pak GitHub-ZIP ud i `C:\apps\task-intake`, kopiér `runtime` fra NAS, kør `SETUP.bat` og `SYSTEMTJEK.bat`. Opdateringer kommer bagefter via knappen i administrationen — kollegaen har ikke GitHub-adgang.
 
 ## Sådan kører du det
 
-1. Kopiér `.env.example` til `.env` og sæt `SECRET_KEY`.
-2. Mail (standard er sat):
-
-   - `MAIL_TO=wrike@wrike.com`
-   - `MAIL_CC=ep@a4.dk`
-   - `MAIL_MARKER=*PODIOWRIKETASKDELETE*`
-
-   Send fra den adresse, der er knyttet til din Wrike-konto.
+1. Kopiér `.env.example` til `.env` og sæt `SECRET_KEY` plus `WRIKE_TOKEN` én gang.
+2. Mappe og prioritet sættes **ikke** i `.env`. Åbn [http://127.0.0.1:7000](http://127.0.0.1:7000) og vælg Wrike-mappe + High/Normal/Low.
 
 3. Start:
 
@@ -59,18 +53,18 @@ I tomgang holder programmet kun et par hundrede megabyte CUDA-kontekst, ikke mod
 
 Overskrifter skrives af lokal Ollama (`qwen2.5:14b` som standard — ikke ChatGPT). Modellen skal køre: `ollama serve` og `ollama pull qwen2.5:14b`. Uden Ollama falder overskriften tilbage til rå Whisper-tekst. I indbakken kan du trykke **Genskab overskrift** på eksisterende kort.
 
-- Computer: [http://127.0.0.1:7000](http://127.0.0.1:7000) — indbakken. **Åbn i Outlook** udfylder emne + brødtekst; du trykker Send. Hvis Outlook ikke åbner, brug **Hent .eml**. Er port 7000 optaget, kan `APP_PORT` i `.env` sættes til en anden port fra 7000 og op.
+- Computer: [http://127.0.0.1:7000](http://127.0.0.1:7000) — administrationen. Her vælger du Wrike-mappe og prioritet, ser lamper og henter fejlrapport. Er port 7000 optaget, kan `APP_PORT` i `.env` sættes til en anden port fra 7000 og op.
 
 ## Telefonen: optag og lad mappen synke
 
 Telefonen optager med sin **egen** optager-app. Der skal ikke installeres nogen model på telefonen, og PC'en behøver ikke være tændt, når du taler.
 
-1. Installer optageren og slå upload til **Dropbox** til. Dropbox beder kun om adgang til sin egen mappe under `Apps\`, hvor OneDrive-integrationen vil have adgang til alle dine filer.
-   - **Android:** ASR Voice Recorder. Filen lander i `Dropbox\Apps\ASRRecordings`.
-   - **iPhone:** RecUp (App Store). Filen lander i `Dropbox\Apps\RecUp Memos` eller `Dropbox\Apps\RecUp`. ASR Voice Recorder findes ikke til iPhone.
+1. Installer optageren og slå upload til **OneDrive** til.
+   - **Android:** ASR Voice Recorder. Filen lander typisk i `OneDrive\Apps\ASR Cloud Uploads\asr`.
+   - **iPhone:** RecUp (App Store). Filen kan lande i OneDrive eller `Dropbox\Apps\RecUp Memos` / `Dropbox\Apps\RecUp`. ASR Voice Recorder findes ikke til iPhone.
 2. Optag et klip, og se at det lander i den mappe på PC'en.
-3. Hold mappen lokal på PC'en. Gør Dropbox den "kun online", ligger filen som en 0-byte pladsholder, som overvågningen med vilje springer over.
-4. Sæt `INBOX_DIR` i `.env` til den mappe.
+3. Hold mappen lokal på PC'en. Gør OneDrive den "kun online", ligger filen som en 0-byte pladsholder, som overvågningen med vilje springer over.
+4. Ret stien i browseren, hvis den ikke passer. `.env` er kun første gæt.
 
 Programmet scanner mappen hvert femte sekund. En fil hentes først ind, når størrelsen har ligget stille to runder i træk, så en halvoverført fil aldrig bliver transskriberet.
 
@@ -88,11 +82,11 @@ En notifikation er et øjeblik. Har du indtalt en idé fredag og holder ferie i 
 
 Programmet lægger ved første kørsel en genvej i Start-menuen. Det er ikke pynt: Windows viser kun notifikationer fra et program, det kender ved navn, og genvejen er det, der bærer navnet. Genvejen peger på indbakken, så et klik ikke starter en ekstra kopi af serveren. Vil du hellere hedde noget andet, sæt `APP_NAME` og `TOAST_AUMID`.
 
-**2. Den daglige oversigt.** Hver morgen omkring `REMIND_AT` sendes en mail med alt, der ligger usorteret, og hvor gammelt det er. Den gentages **hver dag**, indtil indbakken er tom, så en glemt idé bliver mere og mere påtrængende i stedet for at forsvinde. Fejlede optagelser er med på listen — det er præcis dem, man ellers taber.
+**2. Den daglige oversigt.** Hver morgen omkring `REMIND_AT` sendes en mail med job, der ikke kom i Wrike. Den gentages **hver dag**, indtil listen er tom. Fejlede Whisper-kørsler er med på listen.
 
 Mailen sendes gennem din kørende Outlook, så der ikke skal gemmes en adgangskode nogen steder. Var maskinen slukket klokken 08:30, sendes den, når du tænder — dagen springes ikke over. Slå den fra med `REMIND_ENABLED=0`.
 
-**3. Indbakken åbner af sig selv.** Ved login åbnes indbakken, hvis der venter noget. Sidder du allerede med indbakken fremme, holder den sig i ro i stedet for at stjæle fokus. En *skjult* fane tæller ikke som at du kigger — det gjorde den før, og derfor åbnede vinduet sig aldrig. Slå det fra med `AUTO_OPEN=0`.
+**3. Administrationen åbner kun af sig selv ved fejl**, og kun hvis `AUTO_OPEN=1`. Standard er slået fra, så udvikleren ikke får et vindue i vejen.
 
 Alle tre skriver en linje i loggen, når de faktisk har sendt noget. Det lyder overflødigt, men "der kom ingen fejl" er ikke det samme som "beskeden kom frem", og forskellen kostede en dags fejlsøgning.
 

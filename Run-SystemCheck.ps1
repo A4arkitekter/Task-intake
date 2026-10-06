@@ -28,11 +28,14 @@ function New-ErrorReport {
             $content = [IO.File]::ReadAllText($Source)
             $content = [regex]::Replace($content, '(?im)(APP_PASSWORD\s*=\s*)\S+', '$1[SKJULT]')
             $content = [regex]::Replace($content, '(?im)(SECRET_KEY\s*=\s*)\S+', '$1[SKJULT]')
+            $content = [regex]::Replace($content, '(?im)(WRIKE_TOKEN\s*=\s*)\S+', '$1[SKJULT]')
+            $content = [regex]::Replace($content, '(?im)(WRIKE_CLIENT_ID\s*=\s*)\S+', '$1[SKJULT]')
+            $content = [regex]::Replace($content, '(?im)(WRIKE_CLIENT_SECRET\s*=\s*)\S+', '$1[SKJULT]')
             [IO.File]::WriteAllText($Target, $content, (New-Object Text.UTF8Encoding($false)))
         }
 
         foreach ($name in @(
-            "setup-log.txt", "systemtjek.txt", "install-state.json"
+            "setup-log.txt", "systemtjek.txt", "install-state.json", "start-log.txt"
         )) {
             $source = Join-Path $PSScriptRoot $name
             if (Test-Path -LiteralPath $source -PathType Leaf) {

@@ -21,7 +21,7 @@ def _enabled() -> bool:
 
 
 def _auto_open_enabled() -> bool:
-    return os.getenv("AUTO_OPEN", "1").lower() not in {"0", "false", "no"}
+    return os.getenv("AUTO_OPEN", "0").lower() not in {"0", "false", "no"}
 
 
 def open_inbox_if_unattended() -> None:
@@ -56,17 +56,37 @@ def notify_ready(headline: str) -> None:
         from windows_toasts import Toast, ToastButton, ToastScenario
 
         toast = Toast()
-        toast.text_fields = ["Ny idé i indbakken", headline]
-        # En almindelig notifikation forsvinder efter fem sekunder. Som påmindelse
-        # bliver den stående, indtil du selv gør noget ved den — og så er den svær
-        # at overse, også hvis du lige var ude af rummet.
+        toast.text_fields = ["Opgave oprettet i Wrike", headline]
         toast.scenario = ToastScenario.Reminder
-        toast.AddAction(ToastButton("Åbn indbakken", "open"))
+        toast.AddAction(ToastButton("Åbn administrationen", "open"))
         toast.on_activated = lambda _: webbrowser.open(APP_URL)
         toaster.show_toast(toast)
         # Uden en kvittering her kan en notifikation, der aldrig blev vist, gemme sig
         # i loggen som "ingen fejl". Det skete.
         logger.info("Viste notifikation: %s", headline)
+    except Exception as exc:
+        _disable(f"kunne ikke vise notifikation: {exc}")
+
+
+def notify_failed(headline: str) -> None:
+    """Vis at optagelsen eller Wrike-oprettelsen fejlede. Må aldrig kaste."""
+    if not _enabled():
+        logger.info("Sprang fejlnotifikation over: NOTIFY er slået fra")
+        return
+    toaster = _get_toaster()
+    if toaster is None:
+        return
+    try:
+        from windows_toasts import Toast, ToastButton, ToastScenario
+
+        toast = Toast()
+        toast.text_fields = ["Kom ikke i Wrike", headline]
+        toast.scenario = ToastScenario.Reminder
+        toast.AddAction(ToastButton("Åbn administrationen", "open"))
+        toast.on_activated = lambda _: webbrowser.open(APP_URL)
+        toaster.show_toast(toast)
+        logger.info("Viste fejlnotifikation: %s", headline)
+        open_inbox_if_unattended()
     except Exception as exc:
         _disable(f"kunne ikke vise notifikation: {exc}")
 

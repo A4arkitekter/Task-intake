@@ -86,23 +86,42 @@ if ($ollamaExe) {
     Warn "Ollama mangler. Overskrifter falder tilbage til rå Whisper-tekst, indtil den er installeret."
 }
 
-$inbox = Join-Path $env:USERPROFILE "Dropbox\Apps\ASRRecordings"
+$inbox = Join-Path $env:USERPROFILE "OneDrive\Apps\ASR Cloud Uploads\asr"
 if (Test-Path -LiteralPath ".env" -PathType Leaf) {
     $inboxLine = Select-String -Path ".env" -Pattern '^\s*INBOX_DIR=(.+)$' | Select-Object -Last 1
     if ($inboxLine) { $inbox = $inboxLine.Matches[0].Groups[1].Value.Trim().Trim('"') }
 }
-if (Test-Path -LiteralPath $inbox -PathType Container) {
-    Ok "Overvåget Dropbox-mappe findes: $inbox"
-} else {
-    Warn "Dropbox-mappen findes ikke endnu: $inbox. Sæt ASR Voice Recorder (Android) eller RecUp (iPhone) op med Dropbox."
+if (Test-Path -LiteralPath "data\admin-settings.json" -PathType Leaf) {
+    $settingsLine = Select-String -Path "data\admin-settings.json" -Pattern '"inbox_dir"\s*:\s*"([^"]+)"' | Select-Object -Last 1
+    if ($settingsLine) { $inbox = $settingsLine.Matches[0].Groups[1].Value.Trim() }
 }
+if (Test-Path -LiteralPath $inbox -PathType Container) {
+    Ok "Overvåget optagelsesmappe findes: $inbox"
+} else {
+    Warn "Optagelsesmappen findes ikke endnu: $inbox. Sæt ASR Voice Recorder (Android) eller RecUp (iPhone) op med OneDrive. Stien kan rettes i browseren."
+}
+
+$tokenSet = $false
+$clientSet = $false
+$secretSet = $false
+if (Test-Path -LiteralPath ".env" -PathType Leaf) {
+    $tokenLine = Select-String -Path ".env" -Pattern '^\s*WRIKE_TOKEN=(.+)$' | Select-Object -Last 1
+    $clientLine = Select-String -Path ".env" -Pattern '^\s*WRIKE_CLIENT_ID=(.+)$' | Select-Object -Last 1
+    $secretLine = Select-String -Path ".env" -Pattern '^\s*WRIKE_CLIENT_SECRET=(.+)$' | Select-Object -Last 1
+    if ($tokenLine -and $tokenLine.Matches[0].Groups[1].Value.Trim()) { $tokenSet = $true }
+    if ($clientLine -and $clientLine.Matches[0].Groups[1].Value.Trim()) { $clientSet = $true }
+    if ($secretLine -and $secretLine.Matches[0].Groups[1].Value.Trim()) { $secretSet = $true }
+}
+if ($tokenSet) { Ok "Wrike-token er sat i .env" }
+elseif ($clientSet -and $secretSet) { Warn "Client ID og Secret Key er sat, men Wrike-API'et bruger et Permanent Access Token. Klik Get token på samme Wrike-side og sæt WRIKE_TOKEN." }
+else { Warn "Wrike-nøgle mangler i .env. Sæt WRIKE_CLIENT_ID, WRIKE_CLIENT_SECRET og WRIKE_TOKEN. Mappe og ansvarlig vælges i browseren." }
 
 try {
     $outlook = New-Object -ComObject Outlook.Application
     [void]$outlook
     Ok "Outlook kan åbnes fra denne computer"
 } catch {
-    Warn "Outlook svarede ikke. Wrike-mail og den daglige rykker kræver en kørende Outlook."
+    Warn "Outlook svarede ikke. Den daglige rykker kræver en kørende Outlook."
 }
 
 Write-Host ""

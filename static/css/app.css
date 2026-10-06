@@ -463,6 +463,117 @@ body.capture-mode {
   font-size: 0.92rem;
 }
 
+.dashboard {
+  display: grid;
+  gap: 1.1rem;
+  padding: 1.4rem 1.75rem 2rem;
+  max-width: 980px;
+}
+
+.dash-card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 1.15rem 1.2rem 1.3rem;
+  box-shadow: var(--shadow);
+}
+
+.dash-card h2 {
+  font-weight: 500;
+  font-size: 1.15rem;
+  margin: 0 0 0.75rem;
+}
+
+.dash-card label {
+  display: block;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  margin: 0.85rem 0 0.3rem;
+}
+
+.dash-card input, .dash-card select {
+  width: 100%;
+  border: 1px solid var(--line);
+  background: #fff;
+  border-radius: var(--radius);
+  padding: 0.55rem 0.65rem;
+}
+
+.row-input {
+  display: flex;
+  gap: 0.5rem;
+  align-items: stretch;
+}
+
+.row-input input { flex: 1; }
+.row-input .primary { white-space: nowrap; }
+
+.lamps {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.lamp {
+  display: grid;
+  gap: 0.15rem;
+  padding: 0.7rem 0.8rem 0.75rem 0.95rem;
+  border-radius: var(--radius);
+  border-left: 6px solid var(--muted);
+  background: var(--paper);
+}
+
+.lamp strong { font-size: 0.92rem; }
+.lamp span { color: var(--muted); font-size: 0.88rem; line-height: 1.4; }
+.lamp-green { border-left-color: #3d7a45; }
+.lamp-yellow { border-left-color: #c4a035; }
+.lamp-red { border-left-color: var(--danger); }
+
+.selected-folder {
+  margin-bottom: 0.55rem;
+  font-size: 0.95rem;
+}
+
+.folder-results {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin-top: 0.4rem;
+}
+
+.folder-item {
+  text-align: left;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 0.55rem 0.7rem;
+  cursor: pointer;
+}
+
+.folder-item:hover { background: var(--paper-2); }
+
+.job-list { display: flex; flex-direction: column; gap: 0.55rem; }
+
+.job-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: flex-start;
+  padding: 0.7rem 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.job-row:last-child { border-bottom: 0; padding-bottom: 0; }
+
+.job-meta {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
 @media (max-width: 960px) {
   .inbox {
     grid-template-columns: 1fr;
@@ -476,4 +587,7 @@ body.capture-mode {
   .brand-product {
     font-size: 0.8rem;
   }
+  .dashboard { padding: 1rem 1.15rem 1.5rem; }
+  .job-row { flex-direction: column; }
+  .row-input { flex-direction: column; }
 }

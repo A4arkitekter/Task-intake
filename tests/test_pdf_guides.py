@@ -39,7 +39,7 @@ class PdfGuideTests(unittest.TestCase):
             (page.extract_text() or "") for page in PdfReader(ROOT / "BRUGERVEJLEDNING.pdf").pages
         )
         self.assertIn("høj prioritet", daily)
-        self.assertIn("Åbn i Outlook", daily)
+        self.assertIn("Opret testopgave", daily)
         self.assertIn("ASR Voice Recorder", daily)
         self.assertIn("RecUp", daily)
 

@@ -1,42 +1,42 @@
 # Brugervejledning
 
-Tal en idé ind på telefonen. Sorter den ved computeren. Godkendte kort åbner en Outlook-kladde til Wrike med **høj prioritet**.
+Tal en idé ind på telefonen. Programmet opretter opgaven direkte i Wrike med den prioritet, du har valgt i administrationen (standard er **høj prioritet**).
 
 ## Sådan kommer en idé ind
 
-1. Optag på telefonen og slå upload til **Dropbox** til:
-   - **Android:** **ASR Voice Recorder** (Play Butik). Filen lander i `Dropbox\Apps\ASRRecordings`.
-   - **iPhone:** **RecUp** (App Store: RecUp – Record to the Cloud). Filen lander i `Dropbox\Apps\RecUp Memos` eller `Dropbox\Apps\RecUp` (afhænger af Dropbox-tilladelsen i appen).
-2. Det skal være **samme mappe**, du bekræftede under installationen.
+1. Optag på telefonen og slå upload til **OneDrive** til:
+   - **Android:** **ASR Voice Recorder** (Play Butik). Filen lander typisk i `OneDrive\Apps\ASR Cloud Uploads\asr`.
+   - **iPhone:** **RecUp** (App Store). Filen kan lande i OneDrive eller `Dropbox\Apps\RecUp Memos` / `Dropbox\Apps\RecUp`.
+2. Det skal være **samme mappe**, du ser under Optagelser på [http://127.0.0.1:7000](http://127.0.0.1:7000). Stien kan rettes der — du skal ikke åbne en `.env`-fil.
 3. Computeren skal køre Indtagelse (den starter ved login). Du behøver ikke have telefonen på nettet, mens PC'en behandler filen.
-4. Hold mappen **lokal** i Dropbox. En fil, der kun ligger online, er en tom pladsholder og bliver sprunget over.
+4. Hold mappen **lokal**. En fil, der kun ligger online, er en tom pladsholder og bliver sprunget over.
 
-Programmet venter, til filen er færdig med at synke, og flytter den derefter ud af Dropbox, så skyen ikke fyldes. Originalen ligger i `data\behandlet`. En kopi til afspilning ligger i `data\audio` (oprettes ved setup, også når den er tom).
+Programmet venter, til filen er færdig med at synke, og flytter den derefter ud af sky-mappen. Originalen ligger i `data\behandlet`. En kopi til afspilning ligger i `data\audio`.
 
-## Indbakken
+## Administrationen
 
 Åbn [http://127.0.0.1:7000](http://127.0.0.1:7000) hvis browseren ikke kommer af sig selv. Der er intet login. Hvis IT har valgt en anden port fra 7000 og op, bruges den adresse i stedet.
 
-Til venstre ligger usorterede optagelser. Til højre ser du teksten og ét forslag:
+Her vælger du **Wrike-mappe** (søg og klik) og **prioritet** (High, Normal eller Low). Første gang vælger programmet selv en mappe som Indbakke/Inbox, hvis den findes. **Opret testopgave** viser, at API'et og mappen virker.
 
 | Handling | Betydning |
 |---|---|
-| **Åbn i Outlook** | Opretter en kladde til `wrike@wrike.com` med din mail på kopi og **høj prioritet**. Du trykker selv Send. |
-| **Genskab overskrift** | Bed Ollama skrive titlen om. |
-| **Smid væk** | Fjern forslaget eller hele optagelsen. Lyden slettes ikke, før du selv siger til. |
-| **Prøv igen** | Hvis behandlingen fejlede. |
-
-Hvis Outlook-vinduet ikke kommer, brug **Hent .eml**. Den fil har også høj prioritet, når du åbner den i Outlook.
+| **Gem sti** | Skift mappen, optagelser hentes fra. |
+| **Søg Wrike-mappe** | Vælg hvor opgaverne lander. |
+| **Prioritet** | High er standard. Ændringen gælder næste opgave. |
+| **Opret testopgave** | Sender en test ind i den valgte mappe. |
+| **Prøv igen** | Hvis Whisper eller Wrike fejlede. Transskriptionen genbruges, hvis den allerede findes. |
+| **Hent fejlrapport.zip** | Til IT/Cursor. Indeholder ikke token eller lyd. |
 
 ## Telefon og computer
 
-Du kan tale, mens computeren er slukket. Når PC'en tændes, henter Dropbox filen, og Indtagelse behandler den. Første overskrift efter opstart kan tage længere, især uden GPU.
+Du kan tale, mens computeren er slukket. Når PC'en tændes, henter OneDrive filen, og Indtagelse behandler den. Første overskrift efter opstart kan tage længere, især uden GPU.
 
-Der er ingen grænse for, hvor længe du må tale. En lang indtaling giver ét kort. Noten bliver et referat.
+Der er ingen grænse for, hvor længe du må tale. En lang indtaling giver én Wrike-opgave. Noten bliver et referat.
 
 ## Opdatér programmet
 
-Når en godkendt version ligger på NAS, vises en blå bjælke øverst i indbakken.
+Når en godkendt version ligger på NAS, vises en blå bjælke øverst.
 
 1. Vent, til en igangværende optagelse er færdig.
 2. Klik **Opdatér og genstart**.
@@ -46,11 +46,11 @@ Du skal ikke hente fra GitHub eller køre `SETUP.bat`, medmindre programmet bede
 
 ## Ved fejl
 
-Dobbeltklik `SYSTEMTJEK.bat`. Send kun `fejlrapport.zip` til IT. Den indeholder ikke adgangskode, `.env`, runtime eller lyd.
+Dobbeltklik `SYSTEMTJEK.bat`, eller hent `fejlrapport.zip` fra administrationen. Send kun den zip til IT. Den indeholder ikke adgangskode, `.env`, runtime eller lyd.
 
 | Problem | Løsning |
 |---|---|
-| Ingen nye idéer | Kontrollér at Dropbox-mappen er den, du valgte under setup, og at filen er færdig med at synke. |
-| Outlook åbner ikke | Brug Hent .eml, eller åbn Outlook og prøv igen. |
+| Ingen nye idéer | Kontrollér stien til optagelser i browseren, og at filen er færdig med at synke. |
+| Wrike-lampen er rød | Token i `.env` eller netværk. Mappe og prioritet rettes i browseren. |
 | Whisper eller Ollama advarer | Vent, eller kør SYSTEMTJEK.bat. CPU virker, men er langsommere. |
 | Programmet starter ikke | Kør SYSTEMTJEK.bat. Bed IT om SETUP.bat, hvis startfilen siger det. |

@@ -30,7 +30,7 @@ MAX_AUDIO_BYTES = int(os.getenv("MAX_AUDIO_BYTES", str(64 * 1024 * 1024)))
 # 0 betyder ingen varighedsgrænse. En lang indtaling til dig selv er et gyldigt ønske.
 MAX_DURATION_SEC = float(os.getenv("MAX_DURATION_SEC", "0"))
 
-# Mappen telefonen synker til. Peg den på OneDrive-mappen.
+# Første gæt på mappen telefonen synker til. Brugeren retter den i browseren.
 INBOX_DIR = _path_env("INBOX_DIR", DATA_DIR / "indbakke")
 INBOX_ARCHIVE_NAME = "behandlet"
 # Behandlede filer flyttes ud af den synkroniserede mappe, så Dropbox ikke vokser i det uendelige.
@@ -45,8 +45,8 @@ NOTIFY = os.getenv("NOTIFY", "1").lower() not in {"0", "false", "no"}
 # notifikationen og smider den væk uden at sige noget.
 APP_NAME = os.getenv("APP_NAME", "Indtagelse").strip()
 TOAST_AUMID = os.getenv("TOAST_AUMID", "Indtagelse.Idebakke").strip()
-# Åbn indbakken af sig selv, men kun hvis ingen browserfane allerede kigger på den.
-AUTO_OPEN = os.getenv("AUTO_OPEN", "1").lower() not in {"0", "false", "no"}
+# Åbn dashboardet af sig selv, men kun hvis noget fejlede og ingen fane allerede kigger.
+AUTO_OPEN = os.getenv("AUTO_OPEN", "0").lower() not in {"0", "false", "no"}
 AUTO_OPEN_IDLE_SEC = float(os.getenv("AUTO_OPEN_IDLE_SEC", "90"))
 
 SECRET_KEY = (os.getenv("SECRET_KEY") or "dev-secret-change-me").strip()

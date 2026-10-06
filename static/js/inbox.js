@@ -2,18 +2,19 @@ import { api, formatWhen } from "./api.js";
 import { ensureAuth } from "./login.js";
 
 let poll = null;
-let selectedId = null;
-let lastHash = "";
 let onVisible = null;
 let updateActionToken = "";
 let serverInstanceId = "";
 let updateOutcomeShown = false;
+let lastJobsHash = "";
+let folderTimer = null;
+let assigneeTimer = null;
 const UPDATE_RESULT_KEY = "indtagelse-update-result";
 
 export async function renderInbox(root) {
-  document.title = "Indbakke · Indtagelse";
+  document.title = "Administration · Indtagelse";
   document.body.classList.remove("capture-mode");
-  lastHash = "";
+  lastJobsHash = "";
   const me = await ensureAuth();
   if (!me) return;
 
@@ -25,7 +26,7 @@ export async function renderInbox(root) {
           <span class="brand-product">Indtagelse</span>
         </a>
         <div class="topbar-actions">
-          <a class="primary" href="/ny-ide">Ny ide</a>
+          <a class="ghost" href="/ny-ide">Ny ide</a>
         </div>
       </header>
       <div id="update-box" class="update-box" hidden>
@@ -35,90 +36,231 @@ export async function renderInbox(root) {
           <button id="update-btn" class="primary" type="button">Opdatér og genstart</button>
         </div>
       </div>
-      <div id="whisper-banner"></div>
-      <div class="inbox" id="inbox">
-        <p class="empty" style="padding:2rem">Henter indbakke…</p>
+      <div class="dashboard" id="dashboard">
+        <p class="empty" style="padding:2rem">Henter administration…</p>
       </div>
     </div>
   `;
   root.querySelector("#update-btn").addEventListener("click", applyUpdate);
-  await refresh(root);
   await initUpdateBanner();
+  await loadDashboard(root);
   if (poll) clearInterval(poll);
-  poll = setInterval(() => refresh(root), 2500);
+  poll = setInterval(() => refreshJobs(root), 2500);
   if (onVisible) document.removeEventListener("visibilitychange", onVisible);
   onVisible = () => {
-    // Browseren struber en skjult fane, så listen kan være et minut gammel.
-    if (document.visibilityState === "visible") refresh(root);
+    if (document.visibilityState === "visible") refreshJobs(root);
   };
   document.addEventListener("visibilitychange", onVisible);
 }
 
-async function refresh(root) {
-  // Fanen skal kun melde sig som seer, når den faktisk er synlig.
-  const visible = document.visibilityState === "visible" ? 1 : 0;
-  const data = await api(`/api/inbox?visible=${visible}`);
-  const typing = ["INPUT", "TEXTAREA"].includes(document.activeElement?.tagName || "");
-  const hash = `${selectedId}:${JSON.stringify(data)}`;
-  if (typing && lastHash) return;
-  const banner = root.querySelector("#whisper-banner");
-    if (banner) {
-      const parts = [];
-      if (data.whisper === "loading") {
-        parts.push(`<div class="banner">Whisper indlæses første gang (lokal model, ~500 MB). Nye optagelser venter i kø.</div>`);
-      } else if (data.whisper === "error") {
-        parts.push(`<div class="banner">Whisper kunne ikke starte: ${escapeHtml(data.error || "")}</div>`);
-      }
-      if (data.rewrite === "unavailable" || data.rewrite === "error") {
-        parts.push(`<div class="banner">Overskrifter bruger rå tekst, indtil Ollama kører (${escapeHtml(data.rewrite_model || "qwen2.5:14b")}). ${escapeHtml(data.rewrite_error || "")}</div>`);
-      }
-      banner.innerHTML = parts.join("");
-    }
-  if (hash === lastHash) return;
-  lastHash = hash;
-  const captures = data.captures || [];
-  if (!selectedId || !captures.some((item) => item.id === selectedId)) {
-    selectedId = captures[0]?.id || null;
-  }
-  const selected = captures.find((item) => item.id === selectedId) || null;
-  const mount = root.querySelector("#inbox");
+async function loadDashboard(root) {
+  const data = await api("/api/admin");
+  const mount = root.querySelector("#dashboard");
   if (!mount) return;
+  const settings = data.settings || {};
   mount.innerHTML = `
-    <section class="col">
-      <h2>Usorteret</h2>
-      <p class="col-hint">Optagelser du endnu ikke har sendt til Wrike. Klik en for at se den til højre.</p>
-      ${captures.length ? captureList(captures) : `<p class="empty">Ingen idéer i indbakken. Tryk Ny ide på telefonen.</p>`}
+    <section class="dash-card">
+      <h2>Status</h2>
+      <div id="lamps" class="lamps">${lampsHtml(data.health || {})}</div>
+      <div class="card-actions" style="margin-top:1rem">
+        <a class="primary" href="/api/admin/report">Hent fejlrapport.zip</a>
+      </div>
+      <p class="col-hint">Zip uden token, .env og lyd. Læg den i Cursor, når noget er rødt.</p>
     </section>
-    <section class="col">
-      <h2>Original</h2>
-      ${selected ? originalPane(selected) : `<p class="empty">Vælg en optagelse.</p>`}
+    <section class="dash-card">
+      <h2>Hvor lander opgaverne</h2>
+      <p class="col-hint">Mappe, ansvarlig og prioritet gemmes her — ikke i .env. Token er til hele Wrike, ikke en person.</p>
+      <label for="inbox-dir">Mappe med optagelser</label>
+      <div class="row-input">
+        <input id="inbox-dir" value="${escapeAttr(settings.inbox_dir || "")}" />
+        <button class="primary" id="save-inbox" type="button">Gem sti</button>
+      </div>
+      <label for="folder-search">Wrike-mappe</label>
+      <div id="selected-folder" class="selected-folder">${selectedFolderHtml(settings)}</div>
+      <input id="folder-search" placeholder="Søg efter mappe…" />
+      <div id="folder-results" class="folder-results"></div>
+      <label for="assignee-search">Ansvarlig</label>
+      <div id="selected-assignee" class="selected-folder">${selectedAssigneeHtml(settings)}</div>
+      <input id="assignee-search" placeholder="Søg efter navn eller mail…" />
+      <div id="assignee-results" class="folder-results"></div>
+      <label for="importance">Prioritet</label>
+      <select id="importance">
+        <option value="High"${settings.wrike_importance === "High" ? " selected" : ""}>High</option>
+        <option value="Normal"${settings.wrike_importance === "Normal" ? " selected" : ""}>Normal</option>
+        <option value="Low"${settings.wrike_importance === "Low" ? " selected" : ""}>Low</option>
+      </select>
+      <div class="card-actions" style="margin-top:1rem">
+        <button class="primary" id="test-wrike" type="button">Opret testopgave</button>
+      </div>
+      <p id="settings-msg" class="muted"></p>
     </section>
-    <section class="col">
-      <h2>Forslag</h2>
-      ${selected ? proposalPane(selected) : ""}
+    <section class="dash-card">
+      <h2>Seneste job</h2>
+      <div id="jobs">${jobsHtml(data.jobs || [])}</div>
     </section>
   `;
-  mount.querySelectorAll("[data-capture]").forEach((button) => {
-    button.addEventListener("click", () => {
-      selectedId = button.getAttribute("data-capture");
-      refresh(root);
-    });
+  lastJobsHash = JSON.stringify({ jobs: data.jobs, health: data.health, waiting: data.waiting });
+  bindSettings(root);
+  bindJobActions(root);
+}
+
+function bindSettings(root) {
+  const saveInbox = root.querySelector("#save-inbox");
+  const inbox = root.querySelector("#inbox-dir");
+  const importance = root.querySelector("#importance");
+  const search = root.querySelector("#folder-search");
+  const assigneeSearch = root.querySelector("#assignee-search");
+  const testBtn = root.querySelector("#test-wrike");
+  saveInbox?.addEventListener("click", async () => {
+    await saveSettings(root, { inbox_dir: inbox.value });
   });
-  mount.querySelectorAll("[data-discard-capture]").forEach((button) => {
-    button.addEventListener("click", async () => {
-      await api(`/api/captures/${button.getAttribute("data-discard-capture")}/discard`, { method: "POST" });
-      selectedId = null;
-      refresh(root);
-    });
+  importance?.addEventListener("change", async () => {
+    await saveSettings(root, { wrike_importance: importance.value });
   });
-  mount.querySelectorAll("[data-retry-capture]").forEach((button) => {
+  search?.addEventListener("input", () => {
+    clearTimeout(folderTimer);
+    folderTimer = setTimeout(() => searchFolders(root, search.value), 250);
+  });
+  assigneeSearch?.addEventListener("input", () => {
+    clearTimeout(assigneeTimer);
+    assigneeTimer = setTimeout(() => searchContacts(root, assigneeSearch.value), 250);
+  });
+  testBtn?.addEventListener("click", async () => {
+    testBtn.disabled = true;
+    testBtn.textContent = "Opretter…";
+    try {
+      const data = await api("/api/admin/wrike/test", { method: "POST" });
+      const url = data.task?.url;
+      setSettingsMsg(root, url ? `Testopgave oprettet. Åbn i Wrike.` : "Testopgave oprettet.");
+      if (url) window.open(url, "_blank", "noopener");
+    } catch (error) {
+      setSettingsMsg(root, error.message);
+    } finally {
+      testBtn.disabled = false;
+      testBtn.textContent = "Opret testopgave";
+    }
+  });
+}
+
+async function saveSettings(root, body) {
+  try {
+    const data = await api("/api/admin/settings", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    if (data.settings) {
+      const selected = root.querySelector("#selected-folder");
+      const assignee = root.querySelector("#selected-assignee");
+      if (selected) selected.innerHTML = selectedFolderHtml(data.settings);
+      if (assignee) assignee.innerHTML = selectedAssigneeHtml(data.settings);
+    }
+    setSettingsMsg(root, "Gemt.");
+    return data.settings;
+  } catch (error) {
+    setSettingsMsg(root, error.message);
+    throw error;
+  }
+}
+
+async function searchFolders(root, query) {
+  const box = root.querySelector("#folder-results");
+  if (!box) return;
+  if (!query.trim()) {
+    box.innerHTML = "";
+    return;
+  }
+  try {
+    const data = await api(`/api/admin/wrike/folders?q=${encodeURIComponent(query.trim())}`);
+    const folders = data.folders || [];
+    if (!folders.length) {
+      box.innerHTML = `<p class="empty">Ingen mapper matcher.</p>`;
+      return;
+    }
+    box.innerHTML = folders.map((folder) => `
+      <button type="button" class="folder-item" data-folder-id="${escapeAttr(folder.id)}" data-folder-title="${escapeAttr(folder.title)}">
+        ${escapeHtml(folder.title)}
+      </button>
+    `).join("");
+    box.querySelectorAll("[data-folder-id]").forEach((button) => {
+      button.addEventListener("click", async () => {
+        await saveSettings(root, {
+          wrike_folder_id: button.getAttribute("data-folder-id"),
+          wrike_folder_name: button.getAttribute("data-folder-title"),
+        });
+        const search = root.querySelector("#folder-search");
+        if (search) search.value = "";
+        box.innerHTML = "";
+      });
+    });
+  } catch (error) {
+    box.innerHTML = `<p class="empty">${escapeHtml(error.message)}</p>`;
+  }
+}
+
+async function searchContacts(root, query) {
+  const box = root.querySelector("#assignee-results");
+  if (!box) return;
+  if (!query.trim()) {
+    box.innerHTML = "";
+    return;
+  }
+  try {
+    const data = await api(`/api/admin/wrike/contacts?q=${encodeURIComponent(query.trim())}`);
+    const contacts = data.contacts || [];
+    if (!contacts.length) {
+      box.innerHTML = `<p class="empty">Ingen personer matcher.</p>`;
+      return;
+    }
+    box.innerHTML = contacts.map((person) => `
+      <button type="button" class="folder-item" data-assignee-id="${escapeAttr(person.id)}" data-assignee-title="${escapeAttr(person.name || person.title)}">
+        ${escapeHtml(person.title)}
+      </button>
+    `).join("");
+    box.querySelectorAll("[data-assignee-id]").forEach((button) => {
+      button.addEventListener("click", async () => {
+        await saveSettings(root, {
+          wrike_assignee_id: button.getAttribute("data-assignee-id"),
+          wrike_assignee_name: button.getAttribute("data-assignee-title"),
+        });
+        const search = root.querySelector("#assignee-search");
+        if (search) search.value = "";
+        box.innerHTML = "";
+      });
+    });
+  } catch (error) {
+    box.innerHTML = `<p class="empty">${escapeHtml(error.message)}</p>`;
+  }
+}
+
+async function refreshJobs(root) {
+  if (["INPUT", "TEXTAREA", "SELECT"].includes(document.activeElement?.tagName || "")) return;
+  try {
+    const data = await api("/api/admin");
+    const hash = JSON.stringify({ jobs: data.jobs, health: data.health, waiting: data.waiting });
+    if (hash === lastJobsHash) return;
+    lastJobsHash = hash;
+    const lamps = root.querySelector("#lamps");
+    const jobs = root.querySelector("#jobs");
+    if (lamps) lamps.innerHTML = lampsHtml(data.health || {});
+    if (jobs) {
+      jobs.innerHTML = jobsHtml(data.jobs || []);
+      bindJobActions(root);
+    }
+  } catch (_ignored) {
+    // En midlertidig genstart må ikke tømme skærmen.
+  }
+}
+
+function bindJobActions(root) {
+  root.querySelectorAll("[data-retry-capture]").forEach((button) => {
     button.addEventListener("click", async () => {
       button.disabled = true;
       button.textContent = "Prøver igen…";
       try {
         await api(`/api/captures/${button.getAttribute("data-retry-capture")}/retry`, { method: "POST" });
-        lastHash = "";
-        await refresh(root);
+        lastJobsHash = "";
+        await refreshJobs(root);
       } catch (error) {
         button.disabled = false;
         button.textContent = "Prøv igen";
@@ -126,145 +268,78 @@ async function refresh(root) {
       }
     });
   });
-  bindCards(mount, root);
 }
 
-function captureList(captures) {
-  return `<div class="capture-list">${captures.map((item) => `
-    <button type="button" class="capture-item ${item.id === selectedId ? "active" : ""}" data-capture="${item.id}">
-      <div class="when">${formatWhen(item.created_at)}</div>
-      <div class="preview">${escapeHtml(previewText(item))}</div>
-      ${rawSnippet(item) ? `<div class="sub">${escapeHtml(rawSnippet(item))}</div>` : ""}
-      ${item.status === "processing" ? `<div class="status-pill">Behandler</div>` : ""}
-      ${item.status === "error" ? `<div class="status-pill">Fejl</div>` : ""}
-    </button>
-  `).join("")}</div>`;
+function lampsHtml(health) {
+  const items = [
+    ["Optagelser", health.inbox],
+    ["Wrike API", health.wrike],
+    ["Behandling", health.behandling],
+  ];
+  return items.map(([label, lamp]) => {
+    const level = lamp?.level || "red";
+    const message = lamp?.message || "Ukendt";
+    return `<div class="lamp lamp-${escapeAttr(level)}"><strong>${escapeHtml(label)}</strong><span>${escapeHtml(message)}</span></div>`;
+  }).join("");
 }
 
-function originalPane(capture) {
-  if (capture.status === "processing") {
-    return `<p class="empty">Transskriberer og skriver overskrift…</p>`;
+function selectedFolderHtml(settings) {
+  if (settings.wrike_folder_name || settings.wrike_folder_id) {
+    const extra = settings.wrike_folder_defaulted ? " (valgt automatisk — du kan skifte)" : "";
+    return `<strong>${escapeHtml(settings.wrike_folder_name || settings.wrike_folder_id)}</strong>${escapeHtml(extra)}`;
   }
-  if (capture.status === "error") {
-    return `<p class="empty">${escapeHtml(capture.error_message || "Behandlingen fejlede.")}</p>
-      <div class="card-actions">
-        <button class="primary" data-retry-capture="${capture.id}" type="button">Prøv igen</button>
-        <button class="danger" data-discard-capture="${capture.id}" type="button">Smid optagelsen væk</button>
-      </div>`;
+  return "Ingen mappe valgt endnu. Søg ovenfor. Første gang vælger programmet selv Indbakke/Inbox, hvis den findes.";
+}
+
+function selectedAssigneeHtml(settings) {
+  if (settings.wrike_assignee_name || settings.wrike_assignee_id) {
+    return `<strong>${escapeHtml(settings.wrike_assignee_name || settings.wrike_assignee_id)}</strong>`;
   }
+  return "Ingen ansvarlig valgt endnu. Søg efter navn eller mail.";
+}
+
+function jobsHtml(jobs) {
+  if (!jobs.length) return `<p class="empty">Ingen job endnu. Tal en idé ind på telefonen.</p>`;
+  return `<div class="job-list">${jobs.map(jobRow).join("")}</div>`;
+}
+
+function jobRow(job) {
+  const pending = (job.proposals || []).find((item) => item.status === "pending");
+  const sent = (job.proposals || []).find((item) => item.status === "sent");
+  const title = sent?.title || pending?.title || (job.status === "processing" ? "Behandler…" : "Optagelse");
+  const failed = job.status === "error" || Boolean(job.error_message);
+  const status = job.status === "processing"
+    ? "Behandler"
+    : sent
+      ? "I Wrike"
+      : failed
+        ? "Fejl"
+        : "Venter";
+  const link = sent?.wrike_url
+    ? `<a href="${escapeAttr(sent.wrike_url)}" target="_blank" rel="noopener">Åbn i Wrike</a>`
+    : "";
+  const retry = failed || pending
+    ? `<button class="ghost" data-retry-capture="${job.id}" type="button">Prøv igen</button>`
+    : "";
   return `
-    <div class="player">
-      <div class="muted">${formatWhen(capture.created_at)}${capture.duration_sec ? ` · ${Math.round(capture.duration_sec)} s` : ""}</div>
-      <audio controls src="/api/captures/${capture.id}/audio"></audio>
-      <div class="transcript">${escapeHtml(capture.transcript || "")}</div>
-    </div>
-    <p style="margin-top:1rem">
-      <button class="danger" data-discard-capture="${capture.id}" type="button">Smid hele optagelsen væk</button>
-    </p>
-  `;
-}
-
-function proposalPane(capture) {
-  const pending = (capture.proposals || []).filter((item) => item.status === "pending").slice(0, 1);
-  const sent = (capture.proposals || []).filter((item) => item.status === "sent");
-  if (capture.status !== "ready") return "";
-  if (!pending.length && !sent.length) {
-    return `<p class="empty">Ingen forslag. Smid optagelsen væk, eller optag igen.</p>`;
-  }
-  return `<div class="cards">
-    ${pending.map((item) => cardHtml(item)).join("")}
-    ${sent.map((item) => `
-      <article class="card sent">
-        <strong>${escapeHtml(item.title)}</strong>
-        <div class="muted">Klar som mail til Wrike</div>
-        <div class="card-actions" style="margin-top:0.6rem">
-          <a class="primary" href="/api/proposals/${item.id}/eml">Hent .eml</a>
-        </div>
-      </article>
-    `).join("")}
-  </div>`;
-}
-
-function cardHtml(item) {
-  return `
-    <article class="card" data-card="${item.id}">
-      <label>Titel (emne)</label>
-      <input data-title value="${escapeAttr(item.title)}" />
-      <label>Note</label>
-      <textarea data-note>${escapeHtml(item.note)}</textarea>
-      <div class="card-actions">
-        <button class="primary" data-approve type="button">Åbn i Outlook</button>
-        <button class="ghost" data-rewrite type="button">Genskab overskrift</button>
-        <button class="danger" data-discard type="button">Smid væk</button>
+    <article class="job-row">
+      <div>
+        <div class="when">${formatWhen(job.created_at)}</div>
+        <strong>${escapeHtml(title)}</strong>
+        ${job.error_message ? `<div class="sub">${escapeHtml(job.error_message)}</div>` : ""}
+      </div>
+      <div class="job-meta">
+        <span class="status-pill">${escapeHtml(status)}</span>
+        ${link}
+        ${retry}
       </div>
     </article>
   `;
 }
 
-function bindCards(mount, root) {
-  mount.querySelectorAll("[data-card]").forEach((card) => {
-    const id = card.getAttribute("data-card");
-    const title = card.querySelector("[data-title]");
-    const note = card.querySelector("[data-note]");
-    const save = async () => {
-      await api(`/api/proposals/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: title.value, note: note.value }),
-      });
-    };
-    title.addEventListener("change", save);
-    note.addEventListener("change", save);
-    card.querySelector("[data-discard]").addEventListener("click", async () => {
-      await api(`/api/proposals/${id}/discard`, { method: "POST" });
-      refresh(root);
-    });
-    const rewriteBtn = card.querySelector("[data-rewrite]");
-    if (rewriteBtn) {
-      rewriteBtn.addEventListener("click", async () => {
-        rewriteBtn.disabled = true;
-        rewriteBtn.textContent = "Skriver overskrift…";
-        try {
-          await api(`/api/captures/${selectedId}/rewrite`, { method: "POST" });
-          lastHash = "";
-          await refresh(root);
-        } catch (error) {
-          rewriteBtn.disabled = false;
-          rewriteBtn.textContent = "Genskab overskrift";
-          alert(error.message);
-        }
-      });
-    }
-    card.querySelector("[data-approve]").addEventListener("click", async () => {
-      const approve = card.querySelector("[data-approve]");
-      approve.disabled = true;
-      try {
-        await save();
-        const payload = await api(`/api/proposals/${id}/approve`, { method: "POST" });
-        await refresh(root);
-        if (!payload.outlook && payload.mailto) {
-          location.href = payload.mailto;
-        }
-      } catch (error) {
-        approve.disabled = false;
-        alert(error.message);
-      }
-    });
-  });
-}
-
-function previewText(capture) {
-  if (capture.status === "processing") return "På vej…";
-  if (capture.status === "error") return capture.error_message || "Fejl";
-  const pending = (capture.proposals || []).find((item) => item.status === "pending");
-  return pending?.title || "Optagelse";
-}
-
-function rawSnippet(capture) {
-  if (capture.status !== "ready") return "";
-  const text = (capture.transcript || "").trim();
-  if (!text) return "";
-  return text.length > 70 ? `${text.slice(0, 70)}…` : text;
+function setSettingsMsg(root, text) {
+  const node = root.querySelector("#settings-msg");
+  if (node) node.textContent = text || "";
 }
 
 function escapeHtml(value) {

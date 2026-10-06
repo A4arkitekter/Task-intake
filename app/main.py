@@ -21,9 +21,9 @@ from app.config import (
     AUDIO_DIR,
     DATA_DIR,
     ICON_DIR,
-    INBOX_DIR,
     MAX_AUDIO_BYTES,
     MAX_RECORD_SECONDS,
+    PORT,
     REMIND_AT,
     REMIND_TO,
     APP_URL,
@@ -34,10 +34,21 @@ from app.config import (
     ensure_dirs,
     mail_settings,
 )
+from app import dashboard as admin_dashboard
+from app import settings as admin_settings
+from app import wrike
 from app.icons import ensure_icons
 from app.mailer import compose
 from app.notify import open_inbox_if_unattended
-from app.pipeline import audio_duration_sec, process_capture, rewrite_capture
+from app.pipeline import (
+    audio_duration_sec,
+    process_capture,
+    retry_capture_job,
+    rewrite_capture,
+    send_proposal_to_wrike,
+)
+from app.report import build_error_report
+from app.watch import apply_inbox_dir
 from app.remind import start as start_reminder
 from app.winapp import register as register_with_windows
 from app.rewrite import status as rewrite_status
@@ -143,7 +154,7 @@ def health() -> dict:
         "instance_id": program_update.SERVER_INSTANCE_ID,
         "update_action_token": program_update.UPDATE_ACTION_TOKEN,
         "mail": mail_settings(),
-        "inbox_dir": str(INBOX_DIR),
+        "inbox_dir": str(admin_settings.inbox_dir()),
         "watching": WATCH_ENABLED,
         "waiting": len(db.list_waiting()),
         "remind_to": REMIND_TO,
@@ -219,6 +230,74 @@ def api_apply_update(request: Request):
         "message": "Opdateringen starter. Programmet genstarter automatisk.",
         "instance_id": program_update.SERVER_INSTANCE_ID,
     }
+
+
+@app.get("/api/admin")
+def admin_home(_: None = Depends(require_user)) -> dict:
+    return admin_dashboard.payload()
+
+
+@app.get("/api/admin/jobs")
+def admin_jobs(_: None = Depends(require_user)) -> dict:
+    return {"jobs": db.list_jobs(), "waiting": len(db.list_waiting())}
+
+
+@app.patch("/api/admin/settings")
+async def patch_admin_settings(request: Request, _: None = Depends(require_user)) -> dict:
+    payload = await request.json()
+    if not isinstance(payload, dict):
+        raise HTTPException(status_code=400, detail="Ugyldigt indhold")
+    try:
+        data = admin_settings.save(payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    if "inbox_dir" in payload:
+        apply_inbox_dir(data["inbox_dir"])
+    return {"ok": True, "settings": data}
+
+
+@app.get("/api/admin/wrike/folders")
+def admin_wrike_folders(q: str = "", _: None = Depends(require_user)) -> dict:
+    try:
+        folders = wrike.list_folders(query=q)
+    except wrike.WrikeError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    return {"folders": folders[:80]}
+
+
+@app.get("/api/admin/wrike/contacts")
+def admin_wrike_contacts(q: str = "", _: None = Depends(require_user)) -> dict:
+    try:
+        contacts = wrike.list_contacts(query=q)
+    except wrike.WrikeError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    return {"contacts": contacts[:80]}
+
+
+@app.post("/api/admin/wrike/test")
+def admin_wrike_test(_: None = Depends(require_user)) -> dict:
+    data = admin_settings.load()
+    try:
+        task = wrike.create_task(
+            title="Test fra Indtagelse",
+            description="Denne opgave er oprettet fra administrationssiden, så du kan se at mappen, den ansvarlige og prioriteten virker.",
+            folder_id=data["wrike_folder_id"],
+            importance="High",
+            responsible_id=data["wrike_assignee_id"],
+            responsible_name=data["wrike_assignee_name"],
+        )
+    except wrike.WrikeError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    return {"ok": True, "task": task}
+
+
+@app.get("/api/admin/report")
+def admin_report(_: None = Depends(require_user)) -> Response:
+    return Response(
+        content=build_error_report(),
+        media_type="application/zip",
+        headers={"Content-Disposition": 'attachment; filename="fejlrapport.zip"'},
+    )
 
 
 @app.get("/api/me")
@@ -329,15 +408,20 @@ def retry_capture(capture_id: str, background: BackgroundTasks, _: None = Depend
     capture = db.get_capture(capture_id)
     if not capture:
         raise HTTPException(status_code=404, detail="Optagelsen findes ikke")
-    if capture.get("status") != "error":
+    pending = [item for item in db.list_proposals(capture_id) if item.get("status") == "pending"]
+    has_transcript = bool((capture.get("transcript") or "").strip())
+    failed = capture.get("status") == "error" or bool(capture.get("error_message")) or bool(pending)
+    if not failed:
         raise HTTPException(status_code=409, detail="Optagelsen fejlede ikke")
     path = Path(capture.get("audio_path") or "")
-    if not path.is_file():
+    if not has_transcript and not path.is_file():
         raise HTTPException(status_code=409, detail="Lydfilen findes ikke længere")
-    # Lyden ligger stadig på disken, så en fejl behøver ikke koste idéen.
-    db.update_capture(capture_id, status="processing", error_message=None)
-    background.add_task(process_capture, capture_id)
-    return {"id": capture_id, "status": "processing"}
+    if capture.get("status") == "error" and not has_transcript:
+        db.update_capture(capture_id, status="processing", error_message=None)
+    else:
+        db.update_capture(capture_id, error_message=None)
+    background.add_task(retry_capture_job, capture_id)
+    return {"id": capture_id, "status": "processing" if capture.get("status") == "error" and not has_transcript else "ready"}
 
 
 @app.post("/api/captures/{capture_id}/discard")
@@ -401,11 +485,13 @@ def approve_proposal(proposal_id: str, _: None = Depends(require_user)) -> dict:
     if proposal["status"] != "pending":
         raise HTTPException(status_code=409, detail="Forslaget er allerede behandlet")
 
-    payload = _compose_proposal(proposal, open_outlook=True)
-    db.update_proposal(proposal_id, status="sent", wrike_task_id=None, wrike_url=None)
+    try:
+        task = send_proposal_to_wrike(proposal_id)
+    except (wrike.WrikeError, ValueError) as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
     updated = db.get_proposal(proposal_id)
     assert updated is not None
-    return {**updated, **payload}
+    return {**updated, **task}
 
 
 @app.get("/api/proposals/{proposal_id}/mail")

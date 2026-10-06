@@ -59,23 +59,21 @@ def describe(item: dict[str, Any], now: datetime) -> str:
 
 def build_message(items: list[dict[str, Any]], now: datetime) -> tuple[str, str]:
     count = len(items)
-    noun = "idé" if count == 1 else "idéer"
-    subject = f"{count} {noun} venter i din idé-indbakke"
+    noun = "job" if count == 1 else "job"
+    subject = f"{count} {noun} kom ikke i Wrike"
 
-    adjective = "usorteret" if count == 1 else "usorterede"
-    lines = [f"Der ligger {count} {adjective} {noun} i indbakken."]
-    # Items kommer ældste først. Alderen er kun værd at nævne, når den bør genere dig.
+    lines = [f"Der ligger {count} {noun} der ikke kom i Wrike."]
     oldest = age_text(items[0].get("created_at") or "", now)
     if count > 1 and oldest != "i dag":
-        lines.append(f"Den ældste er fra {oldest}.")
+        lines.append(f"Det ældste er fra {oldest}.")
     lines.append("")
     lines.extend(f"  - {describe(item, now)}" for item in items)
     lines.extend(
         [
             "",
-            f"Åbn indbakken: {APP_URL}",
+            f"Åbn administrationen: {APP_URL}",
             "",
-            "Denne besked gentages hver dag, indtil indbakken er tom.",
+            "Denne besked gentages hver dag, indtil listen er tom.",
         ]
     )
     return subject, "\n".join(lines)

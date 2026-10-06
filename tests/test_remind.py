@@ -82,8 +82,8 @@ class MessageTests(unittest.TestCase):
     def test_one_idea_reads_naturally(self):
         items = [{"created_at": NOW.isoformat(), "status": "ready", "title": "Møde med Tine"}]
         subject, body = remind.build_message(items, NOW)
-        self.assertEqual(subject, "1 idé venter i din idé-indbakke")
-        self.assertIn("1 usorteret idé", body)
+        self.assertEqual(subject, "1 job kom ikke i Wrike")
+        self.assertIn("1 job der ikke kom i Wrike", body)
         self.assertIn("Møde med Tine", body)
 
     def test_several_ideas_name_the_age_of_the_oldest(self):
@@ -92,8 +92,8 @@ class MessageTests(unittest.TestCase):
             {"created_at": NOW.isoformat(), "status": "ready", "title": "Ny"},
         ]
         subject, body = remind.build_message(items, NOW)
-        self.assertEqual(subject, "2 idéer venter i din idé-indbakke")
-        self.assertIn("Den ældste er fra 12 dage", body)
+        self.assertEqual(subject, "2 job kom ikke i Wrike")
+        self.assertIn("Det ældste er fra 12 dage", body)
         self.assertIn("Gammel (12 dage)", body)
         self.assertIn("Ny (i dag)", body)
 

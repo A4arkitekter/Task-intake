@@ -101,9 +101,19 @@ class ApiTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn("text/html", response.headers["content-type"])
 
-    def test_approve_returns_mailto(self):
-        from app import db
+    def test_approve_creates_wrike_task(self):
+        from unittest.mock import patch
 
+        from app import db
+        from app import settings as admin_settings
+
+        admin_settings.save(
+            {
+                "wrike_folder_id": "FOLDER1",
+                "wrike_folder_name": "Indbakke",
+                "wrike_importance": "High",
+            }
+        )
         capture = db.create_capture(
             source="pwa",
             audio_path="missing.webm",
@@ -115,20 +125,66 @@ class ApiTests(unittest.TestCase):
             capture["id"],
             [{"title": "Ring til Martin", "note": "Ring til Martin om kontrakten."}],
         )
-        response = self.client.post(f"/api/proposals/{cards[0]['id']}/approve")
+        with patch(
+            "app.wrike.create_task",
+            return_value={"id": "IEAAA", "url": "https://www.wrike.com/open.htm?id=1", "importance": "High"},
+        ) as creator:
+            response = self.client.post(f"/api/proposals/{cards[0]['id']}/approve")
         self.assertEqual(response.status_code, 200, response.text)
         data = response.json()
         self.assertEqual(data["status"], "sent")
-        self.assertTrue(data["mailto"].startswith("mailto:wrike@wrike.com?"))
-        self.assertIn("cc=ep%40a4.dk", data["mailto"])
-        self.assertIn("*PODIOWRIKETASKDELETE*", data["body"])
-        self.assertTrue(data["outlook"])
-        self.assertEqual(data["importance"], "high")
-        eml = self.client.get(f"/api/proposals/{cards[0]['id']}/eml")
-        self.assertEqual(eml.status_code, 200)
-        self.assertIn(b"wrike@wrike.com", eml.content)
-        self.assertIn(b"ep@a4.dk", eml.content)
-        self.assertIn(b"PODIOWRIKETASKDELETE", eml.content)
+        self.assertEqual(data["wrike_task_id"], "IEAAA")
+        self.assertIn("wrike.com", data["wrike_url"])
+        creator.assert_called_once()
+        self.assertEqual(creator.call_args.kwargs["folder_id"], "FOLDER1")
+        self.assertEqual(creator.call_args.kwargs["importance"], "High")
+
+    def test_admin_saves_folder_and_priority_without_env(self):
+        response = self.client.patch(
+            "/api/admin/settings",
+            json={
+                "wrike_folder_id": "ABC",
+                "wrike_folder_name": "Backlog",
+                "wrike_importance": "Normal",
+            },
+        )
+        self.assertEqual(response.status_code, 200, response.text)
+        saved = response.json()["settings"]
+        self.assertEqual(saved["wrike_folder_id"], "ABC")
+        self.assertEqual(saved["wrike_importance"], "Normal")
+        again = self.client.get("/api/admin")
+        self.assertEqual(again.status_code, 200)
+        self.assertEqual(again.json()["settings"]["wrike_folder_name"], "Backlog")
+        self.assertEqual(again.json()["health"]["wrike"]["level"], "red")
+        self.assertIn("behandling", again.json()["health"])
+
+    def test_retry_resends_failed_wrike_job(self):
+        from app import db
+
+        capture = db.create_capture(
+            source="sync",
+            audio_path="missing.webm",
+            audio_mime="audio/webm",
+            duration_sec=3,
+        )
+        db.update_capture(
+            capture["id"],
+            status="ready",
+            transcript="Ring til Martin",
+            error_message="Wrike svarede 401",
+        )
+        db.replace_proposals(capture["id"], [{"title": "Ring til Martin", "note": "Ring til Martin."}])
+        with patch("app.main.retry_capture_job") as worker:
+            response = self.client.post(f"/api/captures/{capture['id']}/retry")
+        self.assertEqual(response.status_code, 200, response.text)
+        worker.assert_called_once_with(capture["id"])
+
+    def test_error_report_is_a_zip_without_secrets(self):
+        response = self.client.get("/api/admin/report")
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("zip", response.headers["content-type"])
+        self.assertIn("fejlrapport.zip", response.headers.get("content-disposition", ""))
+        self.assertGreater(len(response.content), 20)
 
     def test_rewrite_updates_pending_card(self):
         from unittest.mock import patch
@@ -214,7 +270,7 @@ class ApiTests(unittest.TestCase):
         )
         db.update_capture(capture["id"], status="error", error_message="GPU var optaget")
 
-        with patch("app.main.process_capture") as worker:
+        with patch("app.main.retry_capture_job") as worker:
             response = self.client.post(f"/api/captures/{capture['id']}/retry")
 
         self.assertEqual(response.status_code, 200, response.text)

@@ -42,19 +42,20 @@ Hvis stien indeholder `runtime\runtime`, er mappen lagt ét niveau for dybt. Git
 ### 3. Kør SETUP.bat
 
 1. Dobbeltklik den lokale `SETUP.bat`.
-2. Du skal **kun** svare på optagelsesmappe og arbejdmail. Godkend en Windows-UAC, hvis den ligger bagved. **Skriv ikke ollama**, og brug ikke Ollamas vindue — luk det, hvis det kommer. Setup kører videre af sig selv.
-3. Setup viser den mappe, optagelser hentes fra. Den finder selv ASR (Android) eller RecUp (iPhone), hvis mappen allerede findes, ellers typisk:
+2. Du skal **kun** svare på optagelsesmappe, Wrike-token og arbejdmail. Godkend en Windows-UAC, hvis den ligger bagved. **Skriv ikke ollama**, og brug ikke Ollamas vindue — luk det, hvis det kommer. Setup kører videre af sig selv.
+3. Setup viser den mappe, optagelser hentes fra. Den finder selv ASR i OneDrive (`Apps\ASR Cloud Uploads\asr`) eller RecUp, hvis mappen allerede findes. Som reserve vises stadig `Dropbox\Apps\ASRRecordings`. Stien kan rettes senere i browseren.
 
 ```text
-C:\Users\<windows-login>\Dropbox\Apps\ASRRecordings
+C:\Users\<windows-login>\OneDrive\Apps\ASR Cloud Uploads\asr
 ```
 
    Tryk Enter, hvis stien er rigtig. Ellers skriv RecUps mappe, fx `Dropbox\Apps\RecUp Memos`. Android bruger ASR Voice Recorder; iPhone bruger RecUp. ASR findes ikke i App Store.
-4. Skriv din **arbejdmail**. Den bruges som kopi på Wrike-mails og til den daglige rykker, når der ligger usorterede idéer.
-5. Vent, til opsætningen er færdig.
-6. Dobbeltklik `SYSTEMTJEK.bat`. Ved fejl sendes kun `fejlrapport.zip` til IT - ikke `.env` og ikke lyd.
+4. Sæt **Wrike API-token** én gang. Wrike-mappe og prioritet (High som standard) vælges bagefter i browseren.
+5. Skriv din **arbejdmail**. Den bruges til den daglige rykker, når et job ikke kom i Wrike.
+6. Vent, til opsætningen er færdig.
+7. Dobbeltklik `SYSTEMTJEK.bat`. Ved fejl sendes kun `fejlrapport.zip` til IT - ikke `.env` og ikke lyd.
 
-GPU er en bonus. Uden NVIDIA kører Whisper og Ollama på CPU. Programmet starter ved login, så Dropbox-filer bliver behandlet uden at du åbner et sort vindue.
+GPU er en bonus. Uden NVIDIA kører Whisper og Ollama på CPU. Programmet starter ved login, så OneDrive-filer bliver behandlet uden at du åbner et sort vindue.
 
 <!-- PAGEBREAK -->
 

@@ -195,6 +195,24 @@ def update_capture(capture_id: str, **fields: Any) -> None:
         cur.execute(f"UPDATE captures SET {assignments} WHERE id = :id", fields)
 
 
+def list_jobs(limit: int = 40) -> list[dict[str, Any]]:
+    with cursor() as cur:
+        cur.execute(
+            """
+            SELECT * FROM captures
+            ORDER BY created_at DESC
+            LIMIT ?
+            """,
+            (max(1, int(limit)),),
+        )
+        captures = [row_to_dict(row) for row in cur.fetchall()]
+    for capture in captures:
+        assert capture is not None
+        capture["proposals"] = list_proposals(capture["id"])
+        collapse_extra_pending(capture)
+    return captures  # type: ignore[return-value]
+
+
 def list_inbox() -> list[dict[str, Any]]:
     with cursor() as cur:
         cur.execute(

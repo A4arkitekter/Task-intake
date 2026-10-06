@@ -30,13 +30,13 @@ Kollegaens mappe er **ikke** et Git-repository.
 
    Hvis stien indeholder `runtime\runtime`, er mappen lagt ét niveau for dybt.
 
-3. Dobbeltklik `SETUP.bat`. Godkend Windows-vinduer, der dukker op bagved. Bekræft eller ret stien til optagelser, og udfyld kollegaens arbejdmail.
+3. Dobbeltklik `SETUP.bat`. Godkend Windows-vinduer, der dukker op bagved. Bekræft eller ret stien til optagelser, sæt Wrike-token, og udfyld kollegaens arbejdmail.
 4. Dobbeltklik `SYSTEMTJEK.bat`. Send kun `fejlrapport.zip` til IT ved fejl — ikke `.env` og ikke lyd.
 5. Programmet starter af sig selv ved login. Manuelt: `START.bat`.
 
 GPU er en bonus. Uden NVIDIA kører Whisper og Ollama på CPU; første overskrift tager længere.
 
-Dropbox-mappen er den, setup viser (ASR `Apps\ASRRecordings` på Android, RecUp `Apps\RecUp Memos` eller `Apps\RecUp` på iPhone). Mangler den, er det en advarsel, ikke et stop.
+Optagelsesmappen er den, setup viser (ASR i OneDrive `Apps\ASR Cloud Uploads\asr` på Android, RecUp på iPhone; `Dropbox\Apps\ASRRecordings` er reserve). Mangler den, er det en advarsel, ikke et stop. Mappe i Wrike og prioritet vælges i browseren.
 
 ## Senere opdateringer
 

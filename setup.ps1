@@ -126,17 +126,47 @@ function New-Secret([int]$Length = 32) {
     return -join ($bytes | ForEach-Object { $chars[$_ % $chars.Length] })
 }
 
+function Get-OneDriveRoots {
+    $roots = New-Object System.Collections.Generic.List[string]
+    Get-ChildItem -LiteralPath $env:USERPROFILE -Directory -ErrorAction SilentlyContinue |
+        Where-Object { $_.Name -like "OneDrive*" } |
+        ForEach-Object { [void]$roots.Add($_.FullName) }
+    foreach ($name in @("OneDrive")) {
+        $path = Join-Path $env:USERPROFILE $name
+        if ((Test-Path -LiteralPath $path -PathType Container) -and -not $roots.Contains($path)) {
+            [void]$roots.Add($path)
+        }
+    }
+    return @($roots)
+}
+
 function Get-DefaultInboxDir {
+    $candidates = New-Object System.Collections.Generic.List[string]
+    foreach ($root in Get-OneDriveRoots) {
+        foreach ($relative in @(
+            "Apps\ASR Cloud Uploads\asr",
+            "Apps\ASRRecordings",
+            "Apps\RecUp Memos",
+            "Apps\RecUp"
+        )) {
+            [void]$candidates.Add((Join-Path $root $relative))
+        }
+    }
     $dropbox = Join-Path $env:USERPROFILE "Dropbox"
-    $candidates = @(
-        (Join-Path $dropbox "Apps\ASRRecordings"),
-        (Join-Path $dropbox "Apps\RecUp Memos"),
-        (Join-Path $dropbox "Apps\RecUp"),
-        (Join-Path $dropbox "RecUp")
-    )
+    foreach ($relative in @(
+        "Apps\ASRRecordings",
+        "Apps\RecUp Memos",
+        "Apps\RecUp",
+        "RecUp"
+    )) {
+        [void]$candidates.Add((Join-Path $dropbox $relative))
+    }
+    # Reserve: Dropbox\Apps\ASRRecordings og Dropbox\Apps\RecUp Memos, hvis OneDrive ikke findes.
     foreach ($candidate in $candidates) {
         if (Test-Path -LiteralPath $candidate -PathType Container) { return $candidate }
     }
+    $oneDrive = Get-OneDriveRoots | Select-Object -First 1
+    if ($oneDrive) { return Join-Path $oneDrive "Apps\ASR Cloud Uploads\asr" }
     return $candidates[0]
 }
 
@@ -160,16 +190,18 @@ function Write-ColleagueEnv([bool]$UseGpu) {
     $secret = New-Secret 40
     $inbox = Get-DefaultInboxDir
     $mail = ""
+    $token = ""
     if (-not $NonInteractive) {
         Write-Host ""
-        Write-Host "Android: ASR Voice Recorder -> Dropbox\Apps\ASRRecordings" -ForegroundColor Cyan
-        Write-Host "iPhone: RecUp -> Dropbox\Apps\RecUp Memos (eller Apps\RecUp)" -ForegroundColor Cyan
+        Write-Host "Android: ASR Voice Recorder -> OneDrive\Apps\ASR Cloud Uploads\asr" -ForegroundColor Cyan
+        Write-Host "iPhone: RecUp -> OneDrive (eller Dropbox\Apps\RecUp Memos)" -ForegroundColor Cyan
         Write-Host "Optagelser hentes fra denne mappe:" -ForegroundColor Cyan
         Write-Host "  $inbox"
         $inboxTyped = Read-Host "Tryk Enter for at bruge den, eller skriv en anden sti"
         if ($inboxTyped.Trim()) { $inbox = $inboxTyped.Trim().Trim('"') }
+        $token = (Read-Host "Wrike Permanent Access Token (Get token på API-appen). Mappe og ansvarlig vælges bagefter i browseren").Trim()
         do {
-            $mail = (Read-Host "Din arbejdmail (kopi på Wrike-mails og den daglige rykker)").Trim()
+            $mail = (Read-Host "Din arbejdmail (den daglige rykker, hvis noget ikke kom i Wrike)").Trim()
             if ($mail -notmatch '^[^@\s]+@[^@\s]+\.[^@\s]+$') {
                 Write-Host "Skriv en gyldig mailadresse, for eksempel navn@a4.dk." -ForegroundColor Yellow
                 $mail = ""
@@ -187,7 +219,8 @@ function Write-ColleagueEnv([bool]$UseGpu) {
         "WHISPER_DEVICE=cpu" = "WHISPER_DEVICE=$device"
         "WHISPER_COMPUTE_TYPE=int8" = "WHISPER_COMPUTE_TYPE=$compute"
         "MAIL_CC=ep@a4.dk" = "MAIL_CC=$mail"
-        "# INBOX_DIR=C:\Users\dig\Dropbox\Apps\ASRRecordings" = "INBOX_DIR=$inbox"
+        "WRIKE_TOKEN=" = "WRIKE_TOKEN=$token"
+        "# INBOX_DIR=C:\Users\dig\OneDrive\Apps\ASR Cloud Uploads\asr" = "INBOX_DIR=$inbox"
         "# REMIND_TO=dig@firma.dk" = "REMIND_TO=$mail"
     }
     $updated = foreach ($line in $lines) {
@@ -200,7 +233,7 @@ function Write-ColleagueEnv([bool]$UseGpu) {
     $updated += "MODEL_DIR=$modelDir"
     Set-Content -LiteralPath $envPath -Value $updated -Encoding utf8
     if (-not (Test-Path -LiteralPath $inbox -PathType Container)) {
-        Write-Status "Dropbox-mappen $inbox findes endnu ikke. Det er i orden — sæt ASR (Android) eller RecUp (iPhone) og Dropbox op bagefter." Yellow
+        Write-Status "Optagelsesmappen $inbox findes endnu ikke. Det er i orden — sæt ASR (Android) eller RecUp (iPhone) og OneDrive op bagefter. Stien kan også rettes i browseren." Yellow
     }
 }
 

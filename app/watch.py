@@ -15,7 +15,6 @@ from app.config import (
     INBOX_ARCHIVE,
     INBOX_ARCHIVE_DIR,
     INBOX_ARCHIVE_NAME,
-    INBOX_DIR,
     INBOX_MAX_BYTES,
     INBOX_POLL_SECONDS,
 )
@@ -149,6 +148,11 @@ class FolderWatcher:
     def stop(self) -> None:
         self._stop.set()
 
+    def set_folder(self, folder: Path | str) -> None:
+        self.folder = Path(folder)
+        self.folder.mkdir(parents=True, exist_ok=True)
+        logger.info("Overvåger nu %s", self.folder)
+
     def _ingest(self, path: Path, stat: os.stat_result, capture_id: str) -> None:
         suffix = path.suffix.lower()
         AUDIO_DIR.mkdir(parents=True, exist_ok=True)
@@ -189,7 +193,24 @@ def _free_name(target: Path) -> Path:
     return target.with_name(f"{stem}-{os.getpid()}{suffix}")
 
 
+_active: FolderWatcher | None = None
+
+
 def start() -> FolderWatcher:
-    watcher = FolderWatcher(INBOX_DIR, archive_dir=INBOX_ARCHIVE_DIR)
+    from app import settings
+
+    global _active
+    folder = settings.inbox_dir()
+    folder.mkdir(parents=True, exist_ok=True)
+    watcher = FolderWatcher(folder, archive_dir=INBOX_ARCHIVE_DIR)
+    _active = watcher
     threading.Thread(target=watcher.run, daemon=True, name="inbox-watcher").start()
     return watcher
+
+
+def apply_inbox_dir(folder: Path | str) -> Path:
+    path = Path(folder)
+    path.mkdir(parents=True, exist_ok=True)
+    if _active is not None:
+        _active.set_folder(path)
+    return path
