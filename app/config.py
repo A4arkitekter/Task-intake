@@ -64,8 +64,8 @@ MAIL_TO = os.getenv("MAIL_TO", "wrike@wrike.com").strip()
 MAIL_CC = os.getenv("MAIL_CC", "ep@a4.dk").strip()
 MAIL_MARKER = os.getenv("MAIL_MARKER", "*PODIOWRIKETASKDELETE*").strip()
 
-# En notifikation er et øjeblik, man kan overse. Den daglige oversigt gentages,
-# så længe der ligger noget usorteret — også hvis du har været bortrejst i tre uger.
+# En toast er et øjeblik, man kan overse. Fejlmailen gentages hver dag,
+# så længe der ligger job med fejl.
 REMIND_ENABLED = os.getenv("REMIND_ENABLED", "1").lower() not in {"0", "false", "no"}
 REMIND_TO = (os.getenv("REMIND_TO") or MAIL_CC).strip()
 REMIND_AT = os.getenv("REMIND_AT", "08:30").strip()

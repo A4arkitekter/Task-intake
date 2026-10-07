@@ -50,19 +50,19 @@ def age_text(created_at: str, now: datetime) -> str:
 
 def describe(item: dict[str, Any], now: datetime) -> str:
     age = age_text(item.get("created_at") or "", now)
-    if item.get("status") == "error":
-        reason = (item.get("error_message") or "ukendt fejl").strip()
-        return f"Optagelse der fejlede: {reason} ({age})"
-    title = (item.get("title") or "Uden overskrift").strip()
-    return f"{title} ({age})"
+    reason = (item.get("error_message") or "").strip() or "ukendt fejl"
+    title = (item.get("title") or "").strip()
+    if title:
+        return f"{title}: {reason} ({age})"
+    return f"Optagelse der fejlede: {reason} ({age})"
 
 
 def build_message(items: list[dict[str, Any]], now: datetime) -> tuple[str, str]:
     count = len(items)
-    noun = "job" if count == 1 else "job"
-    subject = f"{count} {noun} kom ikke i Wrike"
+    noun = "job"
+    subject = f"{count} {noun} fejlede"
 
-    lines = [f"Der ligger {count} {noun} der ikke kom i Wrike."]
+    lines = [f"Der er {count} {noun} med fejl."]
     oldest = age_text(items[0].get("created_at") or "", now)
     if count > 1 and oldest != "i dag":
         lines.append(f"Det ældste er fra {oldest}.")
@@ -73,7 +73,7 @@ def build_message(items: list[dict[str, Any]], now: datetime) -> tuple[str, str]
             "",
             f"Åbn administrationen: {APP_URL}",
             "",
-            "Denne besked gentages hver dag, indtil listen er tom.",
+            "Denne besked gentages hver dag, indtil fejlene er væk.",
         ]
     )
     return subject, "\n".join(lines)
@@ -89,7 +89,7 @@ def send_email(subject: str, body: str, *, send: bool = True) -> bool:
         import pythoncom
         import win32com.client
     except ImportError as exc:
-        logger.warning("Kan ikke sende oversigten: pywin32 mangler (%s)", exc)
+        logger.warning("Kan ikke sende fejlmailen: pywin32 mangler (%s)", exc)
         return False
 
     # Outlook tilgås via COM, og det skal sættes op i den tråd der bruger det.
@@ -106,23 +106,23 @@ def send_email(subject: str, body: str, *, send: bool = True) -> bool:
             mail.Save()
         return True
     except Exception as exc:
-        logger.warning("Outlook kunne ikke %s oversigten: %s", "sende" if send else "gemme", exc)
+        logger.warning("Outlook kunne ikke %s fejlmailen: %s", "sende" if send else "gemme", exc)
         return False
     finally:
         pythoncom.CoUninitialize()
 
 
 def send_now(*, now: datetime | None = None) -> bool:
-    """Send oversigten uden at spørge om klokken. Returnerer False hvis intet venter."""
+    """Send fejlmailen uden at spørge om klokken. Returnerer False hvis intet fejlede."""
     now = now or datetime.now().astimezone()
-    items = db.list_waiting()
+    items = db.list_failed()
     if not items:
-        logger.info("Ingen oversigt sendt: indbakken er tom")
+        logger.info("Ingen fejlmail sendt: der er ingen fejl")
         return False
     subject, body = build_message(items, now)
     if not send_email(subject, body):
         return False
-    logger.info("Sendte oversigt til %s: %s", REMIND_TO, subject)
+    logger.info("Sendte fejlmail til %s: %s", REMIND_TO, subject)
     return True
 
 
@@ -142,9 +142,9 @@ def send_reminder_if_due(now: datetime | None = None) -> bool:
     if _last_failure and time.monotonic() - _last_failure < RETRY_AFTER_SEC:
         return False
 
-    items = db.list_waiting()
+    items = db.list_failed()
     if not items:
-        # En tom indbakke må ikke markere dagen som sendt. I morgen er en ny chance.
+        # Ingen fejl må ikke markere dagen som sendt. En fejl senere i dag skal stadig ud.
         return False
 
     subject, body = build_message(items, now)
@@ -154,12 +154,12 @@ def send_reminder_if_due(now: datetime | None = None) -> bool:
 
     _last_failure = 0.0
     db.set_state(STATE_KEY, now.date().isoformat())
-    logger.info("Sendte daglig oversigt til %s: %s", REMIND_TO, subject)
+    logger.info("Sendte fejlmail til %s: %s", REMIND_TO, subject)
     return True
 
 
 class Reminder:
-    """Tjekker med jævne mellemrum om dagens oversigt mangler at blive sendt."""
+    """Tjekker med jævne mellemrum om dagens fejlmail mangler at blive sendt."""
 
     def __init__(self, interval: float = REMIND_CHECK_SECONDS) -> None:
         self.interval = interval
@@ -172,7 +172,7 @@ class Reminder:
             try:
                 send_reminder_if_due()
             except Exception:
-                logger.exception("Den daglige oversigt fejlede")
+                logger.exception("Fejlmailen fejlede")
             self._stop.wait(self.interval)
 
     def stop(self) -> None:
@@ -181,9 +181,9 @@ class Reminder:
 
 def start() -> Reminder | None:
     if not _enabled():
-        logger.info("Daglig oversigt er slået fra")
+        logger.info("Fejlmail er slået fra")
         return None
     reminder = Reminder()
     threading.Thread(target=reminder.run, daemon=True, name="daily-reminder").start()
-    logger.info("Daglig oversigt sendes til %s omkring %s", REMIND_TO, REMIND_AT)
+    logger.info("Fejlmail sendes til %s omkring %s, kun når noget er fejlet", REMIND_TO, REMIND_AT)
     return reminder

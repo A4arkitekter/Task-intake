@@ -67,6 +67,12 @@ class WaitingTests(unittest.TestCase):
         waiting = db.list_waiting()
         self.assertEqual(len(waiting), 1)
         self.assertEqual(waiting[0]["status"], "error")
+        self.assertEqual(len(db.list_failed()), 1)
+
+    def test_a_pending_idea_is_not_a_mail_failure(self):
+        add_waiting(days_old=3, title="Møde med Tine")
+        self.assertEqual(len(db.list_waiting()), 1)
+        self.assertEqual(db.list_failed(), [])
 
     def test_a_recording_still_being_processed_does_not_count(self):
         db.create_capture(source="sync", audio_path="lyd.m4a", audio_mime="audio/mp4", duration_sec=5)
@@ -79,28 +85,45 @@ class WaitingTests(unittest.TestCase):
 
 
 class MessageTests(unittest.TestCase):
-    def test_one_idea_reads_naturally(self):
-        items = [{"created_at": NOW.isoformat(), "status": "ready", "title": "Møde med Tine"}]
-        subject, body = remind.build_message(items, NOW)
-        self.assertEqual(subject, "1 job kom ikke i Wrike")
-        self.assertIn("1 job der ikke kom i Wrike", body)
-        self.assertIn("Møde med Tine", body)
-
-    def test_several_ideas_name_the_age_of_the_oldest(self):
+    def test_one_failure_reads_naturally(self):
         items = [
-            {"created_at": (NOW - timedelta(days=12)).isoformat(), "status": "ready", "title": "Gammel"},
-            {"created_at": NOW.isoformat(), "status": "ready", "title": "Ny"},
+            {
+                "created_at": NOW.isoformat(),
+                "status": "error",
+                "title": "Møde med Tine",
+                "error_message": "Wrike svarede 403",
+            }
         ]
         subject, body = remind.build_message(items, NOW)
-        self.assertEqual(subject, "2 job kom ikke i Wrike")
+        self.assertEqual(subject, "1 job fejlede")
+        self.assertIn("1 job med fejl", body)
+        self.assertIn("Møde med Tine: Wrike svarede 403", body)
+
+    def test_several_failures_name_the_age_of_the_oldest(self):
+        items = [
+            {
+                "created_at": (NOW - timedelta(days=12)).isoformat(),
+                "status": "error",
+                "title": "Gammel",
+                "error_message": "timeout",
+            },
+            {
+                "created_at": NOW.isoformat(),
+                "status": "error",
+                "title": "Ny",
+                "error_message": "GPU var optaget",
+            },
+        ]
+        subject, body = remind.build_message(items, NOW)
+        self.assertEqual(subject, "2 job fejlede")
         self.assertIn("Det ældste er fra 12 dage", body)
-        self.assertIn("Gammel (12 dage)", body)
-        self.assertIn("Ny (i dag)", body)
+        self.assertIn("Gammel: timeout (12 dage)", body)
+        self.assertIn("Ny: GPU var optaget (i dag)", body)
 
     def test_the_age_line_is_left_out_when_nothing_is_old(self):
         items = [
-            {"created_at": NOW.isoformat(), "status": "ready", "title": "En"},
-            {"created_at": NOW.isoformat(), "status": "ready", "title": "To"},
+            {"created_at": NOW.isoformat(), "status": "error", "error_message": "En"},
+            {"created_at": NOW.isoformat(), "status": "error", "error_message": "To"},
         ]
         _subject, body = remind.build_message(items, NOW)
         self.assertNotIn("Den ældste", body)
@@ -111,7 +134,7 @@ class MessageTests(unittest.TestCase):
         self.assertIn("GPU var optaget", body)
 
     def test_the_message_says_it_will_come_again(self):
-        items = [{"created_at": NOW.isoformat(), "status": "ready", "title": "Noget"}]
+        items = [{"created_at": NOW.isoformat(), "status": "error", "error_message": "Noget"}]
         _subject, body = remind.build_message(items, NOW)
         self.assertIn("gentages hver dag", body)
 
@@ -150,8 +173,15 @@ class ScheduleTests(unittest.TestCase):
             remind.send_reminder_if_due(NOW)
         self.assertIsNone(db.get_state(remind.STATE_KEY))
 
-    def test_a_waiting_idea_gets_sent_and_marks_the_day(self):
+    def test_a_waiting_idea_does_not_get_a_mail(self):
         add_waiting(days_old=2, title="Møde med Tine")
+        with patch("app.remind.send_email") as sender:
+            self.assertFalse(remind.send_reminder_if_due(NOW))
+        sender.assert_not_called()
+        self.assertIsNone(db.get_state(remind.STATE_KEY))
+
+    def test_a_failed_job_gets_sent_and_marks_the_day(self):
+        add_failed(days_old=2, reason="GPU var optaget")
         with patch("app.remind.send_email", return_value=True) as sender:
             self.assertTrue(remind.send_reminder_if_due(NOW))
         sender.assert_called_once()
@@ -162,8 +192,8 @@ class ScheduleTests(unittest.TestCase):
             self.assertFalse(remind.send_reminder_if_due(NOW))
         sender.assert_not_called()
 
-    def test_it_comes_again_the_next_day_while_something_waits(self):
-        add_waiting(days_old=2, title="Møde med Tine")
+    def test_it_comes_again_the_next_day_while_a_failure_remains(self):
+        add_failed(days_old=2, reason="GPU var optaget")
         with patch("app.remind.send_email", return_value=True):
             remind.send_reminder_if_due(NOW)
         with patch("app.remind.send_email", return_value=True) as sender:
@@ -171,13 +201,13 @@ class ScheduleTests(unittest.TestCase):
         sender.assert_called_once()
 
     def test_a_failed_send_does_not_mark_the_day(self):
-        add_waiting(days_old=2, title="Møde med Tine")
+        add_failed(days_old=2, reason="GPU var optaget")
         with patch("app.remind.send_email", return_value=False):
             self.assertFalse(remind.send_reminder_if_due(NOW))
         self.assertIsNone(db.get_state(remind.STATE_KEY))
 
     def test_env_can_turn_it_off(self):
-        add_waiting(days_old=2, title="Møde med Tine")
+        add_failed(days_old=2, reason="GPU var optaget")
         os.environ["REMIND_ENABLED"] = "0"
         try:
             with patch("app.remind.send_email") as sender:

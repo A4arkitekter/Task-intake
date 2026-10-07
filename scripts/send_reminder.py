@@ -1,4 +1,4 @@
-r"""Send oversigten over ventende idéer nu, uden at vente til i morgen.
+r"""Send fejlmailen nu, uden at vente til i morgen.
 
 Bruges til at kontrollere, at mailen faktisk lander — ikke bare at der ikke kom en fejl.
 
@@ -24,14 +24,14 @@ def main() -> int:
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
     db.init()
 
-    waiting = db.list_waiting()
-    print(f"VENTER      {len(waiting)} ting")
-    if not waiting:
-        print("Intet at minde om. Send en optagelse ind foerst.")
+    failed = db.list_failed()
+    print(f"FEJL        {len(failed)} ting")
+    if not failed:
+        print("Ingen fejl. Der sendes ingen mail.")
         return 0
 
     now = datetime.now().astimezone()
-    subject, body = remind.build_message(waiting, now)
+    subject, body = remind.build_message(failed, now)
     print(f"TIL         {REMIND_TO}")
     print(f"EMNE        {subject}")
     print("-" * 60)

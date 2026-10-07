@@ -133,6 +133,33 @@ def list_waiting() -> list[dict[str, Any]]:
         return [dict(row) for row in cur.fetchall()]
 
 
+def list_failed() -> list[dict[str, Any]]:
+    """Kun job med fejl — ikke usendte idéer, der venter i kataloget."""
+    with cursor() as cur:
+        cur.execute(
+            """
+            SELECT
+                c.id,
+                c.created_at,
+                c.status,
+                c.error_message,
+                (
+                    SELECT p.title FROM proposals p
+                    WHERE p.capture_id = c.id
+                    ORDER BY p.sort_order LIMIT 1
+                ) AS title
+            FROM captures c
+            WHERE c.status = 'error'
+               OR (
+                    c.error_message IS NOT NULL
+                    AND TRIM(c.error_message) != ''
+               )
+            ORDER BY c.created_at ASC
+            """
+        )
+        return [dict(row) for row in cur.fetchall()]
+
+
 def row_to_dict(row: sqlite3.Row | None) -> dict[str, Any] | None:
     if row is None:
         return None
