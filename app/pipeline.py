@@ -97,7 +97,7 @@ def send_proposal_to_wrike(proposal_id: str) -> dict:
         raise wrike.WrikeError("Vælg en Wrike-mappe i administrationen.")
     assignee_id, assignee_name = settings.wrike_assignee()
     if not assignee_id:
-        raise wrike.WrikeError("Vælg en ansvarlig i administrationen.")
+        raise wrike.WrikeError("Vælg en Wrike-konto i administrationen.")
     description = task_description(
         proposal.get("note") or "",
         (capture or {}).get("transcript") or "",

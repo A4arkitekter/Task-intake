@@ -6,7 +6,7 @@ import threading
 import webbrowser
 
 from app.activity import mark_inbox_seen, seconds_since_inbox_seen
-from app.config import APP_NAME, APP_URL, AUTO_OPEN_IDLE_SEC, TOAST_AUMID
+from app.config import APP_NAME, APP_URL, AUTO_OPEN_IDLE_SEC
 
 logger = logging.getLogger(__name__)
 
@@ -46,6 +46,15 @@ def open_inbox_if_unattended() -> None:
 
 def notify_ready(headline: str) -> None:
     """Vis en Windows-notifikation med den nye overskrift. Må aldrig kaste."""
+    _show_toast("Opgave oprettet i Wrike", headline)
+
+
+def notify_failed(headline: str) -> None:
+    """Vis at optagelsen eller Wrike-oprettelsen fejlede. Må aldrig kaste."""
+    _show_toast("Kom ikke i Wrike", headline)
+
+
+def _show_toast(title: str, headline: str) -> None:
     if not _enabled():
         logger.info("Sprang notifikation over: NOTIFY er slået fra")
         return
@@ -53,40 +62,12 @@ def notify_ready(headline: str) -> None:
     if toaster is None:
         return
     try:
-        from windows_toasts import Toast, ToastButton, ToastScenario
+        from windows_toasts import Toast
 
         toast = Toast()
-        toast.text_fields = ["Opgave oprettet i Wrike", headline]
-        toast.scenario = ToastScenario.Reminder
-        toast.AddAction(ToastButton("Åbn administrationen", "open"))
-        toast.on_activated = lambda _: webbrowser.open(APP_URL)
+        toast.text_fields = [title, headline]
         toaster.show_toast(toast)
-        # Uden en kvittering her kan en notifikation, der aldrig blev vist, gemme sig
-        # i loggen som "ingen fejl". Det skete.
         logger.info("Viste notifikation: %s", headline)
-    except Exception as exc:
-        _disable(f"kunne ikke vise notifikation: {exc}")
-
-
-def notify_failed(headline: str) -> None:
-    """Vis at optagelsen eller Wrike-oprettelsen fejlede. Må aldrig kaste."""
-    if not _enabled():
-        logger.info("Sprang fejlnotifikation over: NOTIFY er slået fra")
-        return
-    toaster = _get_toaster()
-    if toaster is None:
-        return
-    try:
-        from windows_toasts import Toast, ToastButton, ToastScenario
-
-        toast = Toast()
-        toast.text_fields = ["Kom ikke i Wrike", headline]
-        toast.scenario = ToastScenario.Reminder
-        toast.AddAction(ToastButton("Åbn administrationen", "open"))
-        toast.on_activated = lambda _: webbrowser.open(APP_URL)
-        toaster.show_toast(toast)
-        logger.info("Viste fejlnotifikation: %s", headline)
-        open_inbox_if_unattended()
     except Exception as exc:
         _disable(f"kunne ikke vise notifikation: {exc}")
 
@@ -99,14 +80,11 @@ def _get_toaster():
         if _toaster is not None:
             return _toaster
         try:
-            from windows_toasts import InteractableWindowsToaster
+            from windows_toasts import WindowsToaster
 
-            from app.winapp import register
-
-            # Uden en registreret identitet tager Windows imod notifikationen og
-            # smider den væk i stilhed. Genvejen er det, der gør programmet kendt.
-            register()
-            _toaster = InteractableWindowsToaster(APP_NAME, TOAST_AUMID)
+            # InteractableWindowsToaster er bundet til Start-genvejen, som åbner
+            # APP_URL — Windows kan derfor åbne en ny fane for hver toast.
+            _toaster = WindowsToaster(APP_NAME)
             return _toaster
         except Exception as exc:
             _broken = True

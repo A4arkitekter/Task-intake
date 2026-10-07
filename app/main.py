@@ -39,7 +39,6 @@ from app import settings as admin_settings
 from app import wrike
 from app.icons import ensure_icons
 from app.mailer import compose
-from app.notify import open_inbox_if_unattended
 from app.pipeline import (
     audio_duration_sec,
     process_capture,
@@ -96,7 +95,6 @@ async def lifespan(_app: FastAPI):
     watcher = start_watcher() if WATCH_ENABLED else None
     releaser = start_idle_releaser()
     reminder = start_reminder()
-    _open_inbox_if_anything_waits()
     _maybe_open_browser()
     try:
         yield
@@ -110,6 +108,10 @@ async def lifespan(_app: FastAPI):
 
 
 def _maybe_open_browser() -> None:
+    from app.config import ROOT
+
+    if (ROOT / ".git").is_dir():
+        return
     flag = os.environ.get("OPEN_BROWSER", "").strip().lower()
     if flag not in {"1", "true", "yes", "on"}:
         return
@@ -120,19 +122,6 @@ def _maybe_open_browser() -> None:
 def _is_loopback(request: Request) -> bool:
     host = (request.client.host if request.client else "") or ""
     return host in {"127.0.0.1", "::1", "testclient"}
-
-
-def _open_inbox_if_anything_waits() -> None:
-    """Bagstopper ved login: en idé fra før ferien skal dukke op af sig selv."""
-    try:
-        waiting = db.list_waiting()
-    except Exception:
-        logger.exception("Kunne ikke se efter ventende idéer")
-        return
-    if not waiting:
-        return
-    logger.info("%s ting venter i indbakken", len(waiting))
-    open_inbox_if_unattended()
 
 
 app = FastAPI(title="Task intake", docs_url=None, redoc_url=None, lifespan=lifespan)
@@ -234,12 +223,19 @@ def api_apply_update(request: Request):
 
 @app.get("/api/admin")
 def admin_home(_: None = Depends(require_user)) -> dict:
+    mark_inbox_seen()
     return admin_dashboard.payload()
 
 
 @app.get("/api/admin/jobs")
 def admin_jobs(_: None = Depends(require_user)) -> dict:
     return {"jobs": db.list_jobs(), "waiting": len(db.list_waiting())}
+
+
+@app.get("/api/admin/pulse")
+def admin_pulse(_: None = Depends(require_user)) -> dict:
+    mark_inbox_seen()
+    return admin_dashboard.pulse()
 
 
 @app.patch("/api/admin/settings")
@@ -253,13 +249,14 @@ async def patch_admin_settings(request: Request, _: None = Depends(require_user)
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     if "inbox_dir" in payload:
         apply_inbox_dir(data["inbox_dir"])
+        admin_dashboard.inbox_health(force=True)
     return {"ok": True, "settings": data}
 
 
 @app.get("/api/admin/wrike/folders")
-def admin_wrike_folders(q: str = "", _: None = Depends(require_user)) -> dict:
+def admin_wrike_folders(q: str = "", account: str = "", _: None = Depends(require_user)) -> dict:
     try:
-        folders = wrike.list_folders(query=q)
+        folders = wrike.list_folders(query=q, account_id=account)
     except wrike.WrikeError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
     return {"folders": folders[:80]}
@@ -280,7 +277,7 @@ def admin_wrike_test(_: None = Depends(require_user)) -> dict:
     try:
         task = wrike.create_task(
             title="Test fra Indtagelse",
-            description="Denne opgave er oprettet fra administrationssiden, så du kan se at mappen, den ansvarlige og prioriteten virker.",
+            description="Denne opgave er oprettet fra administrationssiden, så du kan se at mappen, Wrike-kontoen og prioriteten virker.",
             folder_id=data["wrike_folder_id"],
             importance="High",
             responsible_id=data["wrike_assignee_id"],
@@ -430,6 +427,23 @@ def discard_capture(capture_id: str, _: None = Depends(require_user)) -> dict:
     if not capture:
         raise HTTPException(status_code=404, detail="Optagelsen findes ikke")
     db.discard_pending_for_capture(capture_id)
+    return {"ok": True}
+
+
+@app.delete("/api/captures/{capture_id}")
+def delete_capture(capture_id: str, _: None = Depends(require_user)) -> dict:
+    capture = db.get_capture(capture_id)
+    if not capture:
+        raise HTTPException(status_code=404, detail="Optagelsen findes ikke")
+    audio = Path(capture.get("audio_path") or "")
+    db.delete_capture(capture_id)
+    if audio.is_file():
+        try:
+            audio.resolve().relative_to(AUDIO_DIR.resolve())
+        except ValueError:
+            pass
+        else:
+            audio.unlink(missing_ok=True)
     return {"ok": True}
 
 

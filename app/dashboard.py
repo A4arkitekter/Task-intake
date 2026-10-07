@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import time
 
 from app import db, settings, wrike
 from app.rewrite import status as rewrite_status
@@ -8,46 +9,36 @@ from app.transcribe import status as whisper_status
 
 logger = logging.getLogger(__name__)
 
+_INBOX_HEALTH_TTL_SEC = 45.0
+_inbox_health_cache: dict = {"at": 0.0, "path": "", "value": None}
+
 
 def _lamp(level: str, message: str, *, ok: bool | None = None) -> dict:
     return {"level": level, "ok": True if ok is None else ok, "message": message}
 
 
-def inbox_health() -> dict:
+def inbox_health(*, force: bool = False) -> dict:
+    """Må ikke scanne OneDrive på hvert poll — stat() på skyfiler kan fryse siden i 20 sekunder."""
     path = settings.inbox_dir()
+    now = time.monotonic()
+    cached = _inbox_health_cache.get("value")
+    if (
+        not force
+        and cached
+        and _inbox_health_cache.get("path") == str(path)
+        and now - float(_inbox_health_cache.get("at") or 0) < _INBOX_HEALTH_TTL_SEC
+    ):
+        return cached
     if not path.exists():
-        return _lamp("red", f"Mappen findes ikke: {path}", ok=False)
-    if not path.is_dir():
-        return _lamp("red", "Stien er ikke en mappe.", ok=False)
-    try:
-        probe = path / ".intake-write-check"
-        probe.write_text("ok", encoding="utf-8")
-        probe.unlink(missing_ok=True)
-    except OSError:
-        return _lamp("red", f"Mappen kan ikke skrives: {path}", ok=False)
-    from app.watch import AUDIO_SUFFIXES
-
-    audio = 0
-    empty = 0
-    try:
-        for item in path.iterdir():
-            if not item.is_file() or item.suffix.lower() not in AUDIO_SUFFIXES:
-                continue
-            audio += 1
-            try:
-                if item.stat().st_size <= 0:
-                    empty += 1
-            except OSError:
-                empty += 1
-    except OSError:
-        return _lamp("yellow", f"Mappen kan ikke læses: {path}", ok=False)
-    if audio and empty == audio:
-        return _lamp(
-            "yellow",
-            "Kun tomme pladsholdere. Hold mappen lokal i OneDrive, ellers springes filerne over.",
-            ok=False,
-        )
-    return _lamp("green", f"Overvåger {path}")
+        value = _lamp("red", f"Mappen findes ikke: {path}", ok=False)
+    elif not path.is_dir():
+        value = _lamp("red", "Stien er ikke en mappe.", ok=False)
+    else:
+        value = _lamp("green", f"Overvåger {path}")
+    _inbox_health_cache["at"] = now
+    _inbox_health_cache["path"] = str(path)
+    _inbox_health_cache["value"] = value
+    return value
 
 
 def whisper_health() -> dict:
@@ -96,8 +87,11 @@ def processing_health() -> dict:
 def ensure_default_folder(data: dict) -> dict:
     if data.get("wrike_folder_id") or not wrike.credentials_are_set():
         return data
+    account_id = str(data.get("wrike_assignee_id") or "").strip()
+    if not account_id:
+        return data
     try:
-        folders = wrike.list_folders()
+        folders = wrike.list_folders(account_id=account_id)
     except wrike.WrikeError as exc:
         logger.info("Kunne ikke vælge standardmappe i Wrike: %s", exc)
         return data
@@ -118,7 +112,7 @@ def public_settings() -> dict:
     return ensure_default_folder(settings.load())
 
 
-def payload(*, jobs: int = 40) -> dict:
+def payload() -> dict:
     data = public_settings()
     return {
         "ok": True,
@@ -136,6 +130,19 @@ def payload(*, jobs: int = 40) -> dict:
             "inbox": inbox_health(),
             "behandling": processing_health(),
         },
-        "jobs": db.list_jobs(limit=jobs),
+        "jobs": db.list_catalog(days=30),
+        "waiting": len(db.list_waiting()),
+    }
+
+
+def pulse() -> dict:
+    return {
+        "ok": True,
+        "health": {
+            "wrike": wrike.health(),
+            "inbox": inbox_health(),
+            "behandling": processing_health(),
+        },
+        "jobs": db.list_catalog(days=30, transcripts=False),
         "waiting": len(db.list_waiting()),
     }

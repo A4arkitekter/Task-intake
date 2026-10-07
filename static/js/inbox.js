@@ -42,10 +42,10 @@ export async function renderInbox(root) {
     </div>
   `;
   root.querySelector("#update-btn").addEventListener("click", applyUpdate);
-  await initUpdateBanner();
   await loadDashboard(root);
+  initUpdateBanner();
   if (poll) clearInterval(poll);
-  poll = setInterval(() => refreshJobs(root), 2500);
+  poll = setInterval(() => refreshJobs(root), 10000);
   if (onVisible) document.removeEventListener("visibilitychange", onVisible);
   onVisible = () => {
     if (document.visibilityState === "visible") refreshJobs(root);
@@ -59,47 +59,58 @@ async function loadDashboard(root) {
   if (!mount) return;
   const settings = data.settings || {};
   mount.innerHTML = `
-    <section class="dash-card">
-      <h2>Status</h2>
-      <div id="lamps" class="lamps">${lampsHtml(data.health || {})}</div>
-      <div class="card-actions" style="margin-top:1rem">
-        <a class="primary" href="/api/admin/report">Hent fejlrapport.zip</a>
-      </div>
-      <p class="col-hint">Zip uden token, .env og lyd. Læg den i Cursor, når noget er rødt.</p>
-    </section>
-    <section class="dash-card">
-      <h2>Hvor lander opgaverne</h2>
-      <p class="col-hint">Mappe, ansvarlig og prioritet gemmes her — ikke i .env. Token er til hele Wrike, ikke en person.</p>
-      <label for="inbox-dir">Mappe med optagelser</label>
-      <div class="row-input">
-        <input id="inbox-dir" value="${escapeAttr(settings.inbox_dir || "")}" />
-        <button class="primary" id="save-inbox" type="button">Gem sti</button>
-      </div>
-      <label for="folder-search">Wrike-mappe</label>
-      <div id="selected-folder" class="selected-folder">${selectedFolderHtml(settings)}</div>
-      <input id="folder-search" placeholder="Søg efter mappe…" />
-      <div id="folder-results" class="folder-results"></div>
-      <label for="assignee-search">Ansvarlig</label>
-      <div id="selected-assignee" class="selected-folder">${selectedAssigneeHtml(settings)}</div>
-      <input id="assignee-search" placeholder="Søg efter navn eller mail…" />
-      <div id="assignee-results" class="folder-results"></div>
-      <label for="importance">Prioritet</label>
-      <select id="importance">
-        <option value="High"${settings.wrike_importance === "High" ? " selected" : ""}>High</option>
-        <option value="Normal"${settings.wrike_importance === "Normal" ? " selected" : ""}>Normal</option>
-        <option value="Low"${settings.wrike_importance === "Low" ? " selected" : ""}>Low</option>
-      </select>
-      <div class="card-actions" style="margin-top:1rem">
-        <button class="primary" id="test-wrike" type="button">Opret testopgave</button>
-      </div>
-      <p id="settings-msg" class="muted"></p>
-    </section>
-    <section class="dash-card">
-      <h2>Seneste job</h2>
+    <div class="dash-grid">
+      <section class="dash-card dash-status">
+        <p class="dash-kicker">Status</p>
+        <h2>System</h2>
+        <div id="lamps" class="lamps">${lampsHtml(data.health || {})}</div>
+        <a class="ghost" href="/api/admin/report">Hent fejlrapport.zip</a>
+      </section>
+      <section class="dash-card dash-settings">
+        <p class="dash-kicker">Indstillinger</p>
+        <h2>Hvor lander opgaverne</h2>
+        <div class="field">
+          <label for="inbox-dir">Mappe med optagelser</label>
+          <div class="row-input">
+            <input id="inbox-dir" value="${escapeAttr(settings.inbox_dir || "")}" />
+            <button class="primary" id="save-inbox" type="button">Gem sti</button>
+          </div>
+        </div>
+        <div class="field">
+          <span class="field-label">Wrike konto</span>
+          <div id="selected-assignee" class="field-value">${selectedAssigneeHtml(settings)}</div>
+          <input id="assignee-search" placeholder="Søg for at skifte konto…" />
+          <div id="assignee-results" class="folder-results"></div>
+        </div>
+        <div class="field">
+          <span class="field-label">Wrike-mappe</span>
+          <div id="selected-folder" class="field-value">${selectedFolderHtml(settings)}</div>
+          <input id="folder-search" placeholder="Søg i kontoens mapper…" />
+          <div id="folder-results" class="folder-results"></div>
+        </div>
+        <div class="field">
+          <label for="importance">Prioritet</label>
+          <select id="importance">
+            <option value="High"${settings.wrike_importance === "High" ? " selected" : ""}>High</option>
+            <option value="Normal"${settings.wrike_importance === "Normal" ? " selected" : ""}>Normal</option>
+            <option value="Low"${settings.wrike_importance === "Low" ? " selected" : ""}>Low</option>
+          </select>
+        </div>
+        <div class="card-actions">
+          <button class="primary" id="test-wrike" type="button">Opret testopgave</button>
+        </div>
+        <p id="settings-msg" class="field-msg" hidden></p>
+      </section>
+    </div>
+    <section class="dash-card dash-catalog">
+      <p class="dash-kicker">Katalog</p>
+      <h2>Transkriptioner · 30 dage</h2>
+      <p class="col-hint">Teksten gemmes her, også efter den er sendt til Wrike. Slet-ikonet fjerner kun linjen her — ikke opgaven i Wrike.</p>
+      <input id="catalog-search" placeholder="Søg i titel eller transkription…" />
       <div id="jobs">${jobsHtml(data.jobs || [])}</div>
     </section>
   `;
-  lastJobsHash = JSON.stringify({ jobs: data.jobs, health: data.health, waiting: data.waiting });
+  lastJobsHash = jobsHash(data);
   bindSettings(root);
   bindJobActions(root);
 }
@@ -140,6 +151,8 @@ function bindSettings(root) {
       testBtn.textContent = "Opret testopgave";
     }
   });
+  const catalogSearch = root.querySelector("#catalog-search");
+  catalogSearch?.addEventListener("input", () => applyCatalogFilter(root));
 }
 
 async function saveSettings(root, body) {
@@ -163,6 +176,10 @@ async function saveSettings(root, body) {
   }
 }
 
+function selectedAccountId(root) {
+  return (root.querySelector("#selected-assignee [data-account-id]")?.getAttribute("data-account-id") || "").trim();
+}
+
 async function searchFolders(root, query) {
   const box = root.querySelector("#folder-results");
   if (!box) return;
@@ -170,18 +187,29 @@ async function searchFolders(root, query) {
     box.innerHTML = "";
     return;
   }
+  const accountId = selectedAccountId(root);
+  if (!accountId) {
+    box.innerHTML = `<p class="empty">Vælg Wrike-konto først.</p>`;
+    return;
+  }
   try {
-    const data = await api(`/api/admin/wrike/folders?q=${encodeURIComponent(query.trim())}`);
+    const data = await api(`/api/admin/wrike/folders?q=${encodeURIComponent(query.trim())}&account=${encodeURIComponent(accountId)}`);
     const folders = data.folders || [];
     if (!folders.length) {
       box.innerHTML = `<p class="empty">Ingen mapper matcher.</p>`;
       return;
     }
-    box.innerHTML = folders.map((folder) => `
-      <button type="button" class="folder-item" data-folder-id="${escapeAttr(folder.id)}" data-folder-title="${escapeAttr(folder.title)}">
-        ${escapeHtml(folder.title)}
-      </button>
-    `).join("");
+    box.innerHTML = folders.map((folder) => {
+      const label = folder.label || folder.title;
+      const meta = folder.subtitle
+        ? `<small class="folder-meta">${escapeHtml(folder.subtitle)}</small>`
+        : "";
+      return `
+      <button type="button" class="folder-item" data-folder-id="${escapeAttr(folder.id)}" data-folder-title="${escapeAttr(label)}">
+        <span>${escapeHtml(folder.title)}</span>
+        ${meta}
+      </button>`;
+    }).join("");
     box.querySelectorAll("[data-folder-id]").forEach((button) => {
       button.addEventListener("click", async () => {
         await saveSettings(root, {
@@ -222,10 +250,14 @@ async function searchContacts(root, query) {
         await saveSettings(root, {
           wrike_assignee_id: button.getAttribute("data-assignee-id"),
           wrike_assignee_name: button.getAttribute("data-assignee-title"),
+          wrike_folder_id: "",
+          wrike_folder_name: "",
         });
         const search = root.querySelector("#assignee-search");
         if (search) search.value = "";
         box.innerHTML = "";
+        const folderResults = root.querySelector("#folder-results");
+        if (folderResults) folderResults.innerHTML = "";
       });
     });
   } catch (error) {
@@ -233,19 +265,35 @@ async function searchContacts(root, query) {
   }
 }
 
-async function refreshJobs(root) {
-  if (["INPUT", "TEXTAREA", "SELECT"].includes(document.activeElement?.tagName || "")) return;
+function jobsHash(data) {
+  return JSON.stringify({
+    health: data.health,
+    waiting: data.waiting,
+    jobs: (data.jobs || []).map((job) => [
+      job.id,
+      job.status,
+      job.error_message,
+      (job.proposals || []).map((item) => [item.status, item.wrike_url]),
+    ]),
+  });
+}
+
+async function refreshJobs(root, { force = false } = {}) {
+  if (!force && ["INPUT", "TEXTAREA", "SELECT"].includes(document.activeElement?.tagName || "")) return;
+  if (!force && root.querySelector("details[open]")) return;
   try {
-    const data = await api("/api/admin");
-    const hash = JSON.stringify({ jobs: data.jobs, health: data.health, waiting: data.waiting });
-    if (hash === lastJobsHash) return;
-    lastJobsHash = hash;
+    const pulse = await api("/api/admin/pulse");
     const lamps = root.querySelector("#lamps");
+    if (lamps) lamps.innerHTML = lampsHtml(pulse.health || {});
+    const hash = jobsHash(pulse);
+    if (!force && hash === lastJobsHash) return;
+    const data = await api("/api/admin");
+    lastJobsHash = jobsHash(data);
     const jobs = root.querySelector("#jobs");
-    if (lamps) lamps.innerHTML = lampsHtml(data.health || {});
     if (jobs) {
       jobs.innerHTML = jobsHtml(data.jobs || []);
       bindJobActions(root);
+      applyCatalogFilter(root);
     }
   } catch (_ignored) {
     // En midlertidig genstart må ikke tømme skærmen.
@@ -259,11 +307,23 @@ function bindJobActions(root) {
       button.textContent = "Prøver igen…";
       try {
         await api(`/api/captures/${button.getAttribute("data-retry-capture")}/retry`, { method: "POST" });
-        lastJobsHash = "";
-        await refreshJobs(root);
+        await refreshJobs(root, { force: true });
       } catch (error) {
         button.disabled = false;
         button.textContent = "Prøv igen";
+        alert(error.message);
+      }
+    });
+  });
+  root.querySelectorAll("[data-delete-capture]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      if (!window.confirm("Fjern transkriptionen fra kataloget? Opgaven i Wrike bliver.")) return;
+      button.disabled = true;
+      try {
+        await api(`/api/captures/${button.getAttribute("data-delete-capture")}`, { method: "DELETE" });
+        await refreshJobs(root, { force: true });
+      } catch (error) {
+        button.disabled = false;
         alert(error.message);
       }
     });
@@ -284,23 +344,28 @@ function lampsHtml(health) {
 }
 
 function selectedFolderHtml(settings) {
-  if (settings.wrike_folder_name || settings.wrike_folder_id) {
-    const extra = settings.wrike_folder_defaulted ? " (valgt automatisk — du kan skifte)" : "";
-    return `<strong>${escapeHtml(settings.wrike_folder_name || settings.wrike_folder_id)}</strong>${escapeHtml(extra)}`;
+  if (!settings.wrike_assignee_id) {
+    return "Vælg Wrike-konto først.";
   }
-  return "Ingen mappe valgt endnu. Søg ovenfor. Første gang vælger programmet selv Indbakke/Inbox, hvis den findes.";
+  if (settings.wrike_folder_name || settings.wrike_folder_id) {
+    const extra = settings.wrike_folder_defaulted ? " · valgt automatisk, du kan skifte" : "";
+    return `${escapeHtml(settings.wrike_folder_name || settings.wrike_folder_id)}${escapeHtml(extra)}`;
+  }
+  return "Ingen mappe valgt. Søg nedenfor.";
 }
 
 function selectedAssigneeHtml(settings) {
-  if (settings.wrike_assignee_name || settings.wrike_assignee_id) {
-    return `<strong>${escapeHtml(settings.wrike_assignee_name || settings.wrike_assignee_id)}</strong>`;
+  const id = settings.wrike_assignee_id || "";
+  const name = settings.wrike_assignee_name || id;
+  if (name) {
+    return `<span data-account-id="${escapeAttr(id)}">${escapeHtml(name)}</span>`;
   }
-  return "Ingen ansvarlig valgt endnu. Søg efter navn eller mail.";
+  return `<span data-account-id="">Ingen konto valgt. Søg nedenfor.</span>`;
 }
 
 function jobsHtml(jobs) {
-  if (!jobs.length) return `<p class="empty">Ingen job endnu. Tal en idé ind på telefonen.</p>`;
-  return `<div class="job-list">${jobs.map(jobRow).join("")}</div>`;
+  if (!jobs.length) return `<p class="empty">Ingen transkriptioner de seneste 30 dage.</p>`;
+  return `<div class="catalog-list">${jobs.map(jobRow).join("")}</div>`;
 }
 
 function jobRow(job) {
@@ -315,31 +380,76 @@ function jobRow(job) {
       : failed
         ? "Fejl"
         : "Venter";
+  const statusClass = job.status === "processing"
+    ? "is-busy"
+    : sent
+      ? "is-ok"
+      : failed
+        ? "is-bad"
+        : "is-wait";
+  const transcript = (job.transcript || "").trim();
   const link = sent?.wrike_url
     ? `<a href="${escapeAttr(sent.wrike_url)}" target="_blank" rel="noopener">Åbn i Wrike</a>`
     : "";
   const retry = failed || pending
     ? `<button class="ghost" data-retry-capture="${job.id}" type="button">Prøv igen</button>`
     : "";
+  const search = [title, transcript, job.error_message || ""].join(" ").toLowerCase();
+  const body = transcript
+    ? `<details class="catalog-text"><summary>Vis transkription</summary><pre>${escapeHtml(transcript)}</pre></details>`
+    : "";
   return `
-    <article class="job-row">
-      <div>
+    <article class="catalog-row" data-search="${escapeAttr(search)}">
+      <div class="catalog-main">
         <div class="when">${formatWhen(job.created_at)}</div>
         <strong>${escapeHtml(title)}</strong>
         ${job.error_message ? `<div class="sub">${escapeHtml(job.error_message)}</div>` : ""}
+        ${body}
       </div>
       <div class="job-meta">
-        <span class="status-pill">${escapeHtml(status)}</span>
+        <span class="status-pill ${statusClass}">${escapeHtml(status)}</span>
         ${link}
         ${retry}
+        <button class="icon-btn" type="button" data-delete-capture="${job.id}" aria-label="Slet fra kataloget" title="Slet fra kataloget">
+          ${trashIcon()}
+        </button>
       </div>
     </article>
   `;
 }
 
+function trashIcon() {
+  return `<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M9 3h6l1 2h5v2H3V5h5l1-2zm1 6h2v9h-2V9zm4 0h2v9h-2V9zM7 9h2v9H7V9zm-1 12h12a1 1 0 0 0 1-1V8H5v12a1 1 0 0 0 1 1z"/></svg>`;
+}
+
+function applyCatalogFilter(root) {
+  const needle = (root.querySelector("#catalog-search")?.value || "").trim().toLowerCase();
+  const rows = root.querySelectorAll(".catalog-row");
+  let shown = 0;
+  rows.forEach((row) => {
+    const match = !needle || (row.getAttribute("data-search") || "").includes(needle);
+    row.hidden = !match;
+    if (match) shown += 1;
+  });
+  const empty = root.querySelector("#catalog-empty");
+  if (empty) empty.remove();
+  if (needle && rows.length && !shown) {
+    const jobs = root.querySelector("#jobs");
+    if (jobs) {
+      const note = document.createElement("p");
+      note.className = "empty";
+      note.id = "catalog-empty";
+      note.textContent = "Ingen transkriptioner matcher søgningen.";
+      jobs.append(note);
+    }
+  }
+}
+
 function setSettingsMsg(root, text) {
   const node = root.querySelector("#settings-msg");
-  if (node) node.textContent = text || "";
+  if (!node) return;
+  node.textContent = text || "";
+  node.hidden = !text;
 }
 
 function escapeHtml(value) {

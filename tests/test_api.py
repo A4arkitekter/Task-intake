@@ -13,9 +13,13 @@ os.environ["NOTIFY"] = "0"
 os.environ["WATCH_ENABLED"] = "0"
 os.environ["AUTO_OPEN"] = "0"
 os.environ["REMIND_ENABLED"] = "0"
+os.environ["WRIKE_TOKEN"] = ""
+os.environ["WRIKE_CLIENT_ID"] = ""
+os.environ["WRIKE_CLIENT_SECRET"] = ""
 
 _tmp = tempfile.mkdtemp(prefix="intake-test-")
 os.environ["DATA_DIR"] = _tmp
+os.environ["INBOX_DIR"] = str(__import__("pathlib").Path(_tmp) / "indbakke")
 
 from unittest.mock import patch
 
@@ -68,6 +72,12 @@ class ApiTests(unittest.TestCase):
         self.client = TestClient(app)
         self._outlook = patch("app.mailer.open_outlook_draft", return_value=True)
         self._outlook.start()
+        from app import db
+
+        db.init()
+        with db.cursor() as cur:
+            cur.execute("DELETE FROM proposals")
+            cur.execute("DELETE FROM captures")
 
     def tearDown(self):
         self._outlook.stop()
@@ -112,6 +122,8 @@ class ApiTests(unittest.TestCase):
                 "wrike_folder_id": "FOLDER1",
                 "wrike_folder_name": "Indbakke",
                 "wrike_importance": "High",
+                "wrike_assignee_id": "KU123",
+                "wrike_assignee_name": "Erik Petersen",
             }
         )
         capture = db.create_capture(
@@ -157,6 +169,72 @@ class ApiTests(unittest.TestCase):
         self.assertEqual(again.json()["settings"]["wrike_folder_name"], "Backlog")
         self.assertEqual(again.json()["health"]["wrike"]["level"], "red")
         self.assertIn("behandling", again.json()["health"])
+
+    def test_admin_catalog_keeps_transcripts_for_30_days(self):
+        from datetime import datetime, timedelta, timezone
+
+        from app import db
+
+        capture = db.create_capture(
+            source="sync",
+            audio_path="missing.m4a",
+            audio_mime="audio/mp4",
+            duration_sec=4,
+        )
+        db.update_capture(
+            capture["id"],
+            status="ready",
+            transcript="Ring til Martin om kontrakten.",
+        )
+        db.replace_proposals(capture["id"], [{"title": "Ring til Martin", "note": "Om kontrakten."}])
+        old = db.create_capture(
+            source="sync",
+            audio_path="old.m4a",
+            audio_mime="audio/mp4",
+            duration_sec=4,
+        )
+        db.update_capture(
+            old["id"],
+            created_at=(datetime.now(timezone.utc) - timedelta(days=40)).isoformat(),
+            status="ready",
+            transcript="Gammel idé.",
+        )
+        response = self.client.get("/api/admin")
+        self.assertEqual(response.status_code, 200)
+        jobs = response.json()["jobs"]
+        ids = {item["id"] for item in jobs}
+        self.assertIn(capture["id"], ids)
+        self.assertNotIn(old["id"], ids)
+        found = next(item for item in jobs if item["id"] == capture["id"])
+        self.assertEqual(found["transcript"], "Ring til Martin om kontrakten.")
+        pulse = self.client.get("/api/admin/pulse")
+        self.assertEqual(pulse.status_code, 200)
+        pulse_job = next(item for item in pulse.json()["jobs"] if item["id"] == capture["id"])
+        self.assertEqual(pulse_job["transcript"], "")
+        self.assertIn("behandling", pulse.json()["health"])
+
+    def test_catalog_delete_removes_capture_but_keeps_wrike_task_untouched(self):
+        from pathlib import Path
+
+        from app import db
+        from app.config import AUDIO_DIR
+
+        AUDIO_DIR.mkdir(parents=True, exist_ok=True)
+        audio = AUDIO_DIR / "catalog-delete.m4a"
+        audio.write_bytes(b"lyd")
+        capture = db.create_capture(
+            source="sync",
+            audio_path=str(audio),
+            audio_mime="audio/mp4",
+            duration_sec=2,
+        )
+        db.update_capture(capture["id"], status="ready", transcript="Kort test.")
+        response = self.client.delete(f"/api/captures/{capture['id']}")
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertIsNone(db.get_capture(capture["id"]))
+        self.assertFalse(audio.is_file())
+        gone = self.client.get("/api/admin").json()["jobs"]
+        self.assertFalse(any(item["id"] == capture["id"] for item in gone))
 
     def test_retry_resends_failed_wrike_job(self):
         from app import db

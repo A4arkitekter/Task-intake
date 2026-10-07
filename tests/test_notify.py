@@ -54,6 +54,16 @@ class AutoOpenTests(unittest.TestCase):
         with patch("app.notify.webbrowser.open", side_effect=OSError("ingen browser")):
             notify.open_inbox_if_unattended()
 
+    def test_failed_toast_does_not_open_a_browser_window(self):
+        source = Path(__file__).resolve().parents[1] / "app" / "notify.py"
+        text = source.read_text(encoding="utf-8")
+        failed = text.split("def notify_failed", 1)[1].split("def ", 1)[0]
+        self.assertNotIn("open_inbox_if_unattended", failed)
+        self.assertNotIn("webbrowser.open", failed)
+        self.assertNotIn("ToastButton", text.split("def notify_ready", 1)[1])
+        self.assertIn("WindowsToaster", text)
+        self.assertNotIn("InteractableWindowsToaster(", text)
+
 
 class ContextSizeTests(unittest.TestCase):
     def test_a_short_idea_uses_the_small_window(self):

@@ -22,6 +22,64 @@ class WrikeTests(unittest.TestCase):
         ]
         self.assertEqual(wrike.pick_default_folder(folders)["id"], "2")
 
+    def test_list_folders_distinguishes_same_title_by_owner(self):
+        wrike._folders_cache.update({"at": 0.0, "value": None})
+        wrike._contacts_cache.update({"at": 0.0, "value": None})
+        wrike._spaces_cache.update({"at": 0.0, "value": None})
+        folders = {
+            "data": [
+                {"id": "ROOT", "title": "Root", "childIds": ["SPACE1", "SPACE2"]},
+                {"id": "SPACE1", "title": "Personal", "childIds": ["F1"]},
+                {"id": "SPACE2", "title": "Personal", "childIds": []},
+                {"id": "F1", "title": "task-intake", "childIds": []},
+            ]
+        }
+        spaces = {
+            "data": [
+                {
+                    "id": "SPACE1",
+                    "title": "Personal",
+                    "accessType": "Personal",
+                    "members": [{"id": "KU1", "isManager": True}],
+                },
+                {
+                    "id": "SPACE2",
+                    "title": "Personal",
+                    "accessType": "Personal",
+                    "members": [{"id": "KU2", "isManager": True}],
+                },
+            ]
+        }
+        contacts = {
+            "data": [
+                {"id": "KU1", "firstName": "Eric", "lastName": "Prescott", "type": "Person", "me": True},
+                {"id": "KU2", "firstName": "Anna", "lastName": "Jensen", "type": "Person"},
+            ]
+        }
+
+        def fake_request(_method, path, _payload=None):
+            if path.startswith("/folders"):
+                return folders
+            if path.startswith("/spaces"):
+                return spaces
+            if path.startswith("/contacts"):
+                return contacts
+            raise AssertionError(path)
+
+        with patch("app.wrike._request", side_effect=fake_request):
+            self.assertEqual(wrike.list_folders(query="personal"), [])
+            mine = {row["id"]: row for row in wrike.list_folders(query="personal", account_id="KU1")}
+            other = {row["id"]: row for row in wrike.list_folders(query="personal", account_id="KU2")}
+            nested = wrike.list_folders(query="task-intake", account_id="KU1")
+        self.assertEqual(set(mine), {"SPACE1", "F1"})
+        self.assertNotIn("SPACE2", mine)
+        self.assertEqual(mine["SPACE1"]["subtitle"], "Din mappe")
+        self.assertEqual(set(other), {"SPACE2"})
+        self.assertEqual(other["SPACE2"]["subtitle"], "Din mappe")
+        self.assertEqual(nested[0]["id"], "F1")
+        self.assertEqual(nested[0]["subtitle"], "Din mappe")
+        self.assertEqual(nested[0]["label"], "task-intake · Din mappe")
+
     def test_create_task_posts_to_selected_folder(self):
         payload = {"data": [{"id": "T1", "permalink": "https://www.wrike.com/open.htm?id=1"}]}
         with patch("app.wrike._request", return_value=payload) as request:

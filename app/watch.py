@@ -57,9 +57,12 @@ MIME_BY_SUFFIX = {
 }
 
 
-def capture_id_for(name: str, size: int, mtime_ns: int) -> str:
-    """Samme fil skal give samme id, så en ekstra scanning ikke laver en dublet."""
-    return hashlib.md5(f"{name}|{size}|{mtime_ns}".encode("utf-8")).hexdigest()
+def capture_id_for(name: str, size: int, mtime_ns: int = 0) -> str:
+    """Samme fil skal give samme id, så en ekstra scanning ikke laver en dublet.
+
+    OneDrive rører mtime uden at indholdet ændrer sig. Derfor indgår mtime ikke.
+    """
+    return hashlib.md5(f"{name}|{size}".encode("utf-8")).hexdigest()
 
 
 def iso_from_mtime(mtime: float) -> str:
@@ -137,6 +140,10 @@ class FolderWatcher:
         return ingested
 
     def run(self) -> None:
+        try:
+            self.folder.mkdir(parents=True, exist_ok=True)
+        except OSError:
+            logger.exception("Kunne ikke oprette optagelsesmappen %s", self.folder)
         logger.info("Overvåger %s", self.folder)
         while not self._stop.is_set():
             try:
@@ -201,7 +208,6 @@ def start() -> FolderWatcher:
 
     global _active
     folder = settings.inbox_dir()
-    folder.mkdir(parents=True, exist_ok=True)
     watcher = FolderWatcher(folder, archive_dir=INBOX_ARCHIVE_DIR)
     _active = watcher
     threading.Thread(target=watcher.run, daemon=True, name="inbox-watcher").start()

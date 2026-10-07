@@ -17,6 +17,10 @@ from app.watch import FolderWatcher, capture_id_for, iso_from_mtime
 
 class WatchTests(unittest.TestCase):
     def setUp(self):
+        db.init()
+        with db.cursor() as cur:
+            cur.execute("DELETE FROM proposals")
+            cur.execute("DELETE FROM captures")
         self.folder = Path(tempfile.mkdtemp(prefix="intake-sync-"))
         self.processed: list[str] = []
         self.watcher = FolderWatcher(
@@ -137,6 +141,7 @@ class WatchTests(unittest.TestCase):
     def test_capture_id_is_stable_and_distinct(self):
         first = capture_id_for("idea.m4a", 10, 123)
         self.assertEqual(first, capture_id_for("idea.m4a", 10, 123))
+        self.assertEqual(first, capture_id_for("idea.m4a", 10, 999))
         self.assertNotEqual(first, capture_id_for("idea.m4a", 11, 123))
         self.assertNotEqual(first, capture_id_for("anden.m4a", 10, 123))
 

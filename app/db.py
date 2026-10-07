@@ -3,7 +3,7 @@ from __future__ import annotations
 import sqlite3
 import threading
 from contextlib import contextmanager
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any, Iterator
 from uuid import uuid4
 
@@ -211,6 +211,52 @@ def list_jobs(limit: int = 40) -> list[dict[str, Any]]:
         capture["proposals"] = list_proposals(capture["id"])
         collapse_extra_pending(capture)
     return captures  # type: ignore[return-value]
+
+
+def list_catalog(*, days: int = 30, query: str = "", transcripts: bool = True) -> list[dict[str, Any]]:
+    cutoff = (datetime.now(timezone.utc) - timedelta(days=max(1, int(days)))).isoformat()
+    needle = query.strip().casefold()
+    with cursor() as cur:
+        cur.execute(
+            """
+            SELECT * FROM captures
+            WHERE created_at >= ?
+            ORDER BY created_at DESC
+            """,
+            (cutoff,),
+        )
+        captures = [row_to_dict(row) for row in cur.fetchall()]
+    rows: list[dict[str, Any]] = []
+    for capture in captures:
+        assert capture is not None
+        capture["proposals"] = list_proposals(capture["id"])
+        collapse_extra_pending(capture)
+        if needle:
+            haystack = " ".join(
+                [
+                    str(capture.get("transcript") or ""),
+                    str(capture.get("error_message") or ""),
+                    *(
+                        f"{item.get('title') or ''} {item.get('note') or ''}"
+                        for item in capture["proposals"]
+                    ),
+                ]
+            ).casefold()
+            if needle not in haystack:
+                continue
+        if not transcripts:
+            capture["transcript"] = ""
+        rows.append(capture)
+    return rows
+
+
+def delete_capture(capture_id: str) -> dict[str, Any] | None:
+    capture = get_capture(capture_id)
+    if not capture:
+        return None
+    with cursor() as cur:
+        cur.execute("DELETE FROM captures WHERE id = ?", (capture_id,))
+    return capture
 
 
 def list_inbox() -> list[dict[str, Any]]:
