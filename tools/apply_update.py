@@ -187,6 +187,14 @@ def apply(source: Path) -> dict:
             state_temp = ROOT / ".update-state.new.json"
             state_temp.write_text(json.dumps(new_state, ensure_ascii=False, indent=2), encoding="utf-8")
             os.replace(state_temp, STATE_PATH)
+            try:
+                from app.envfile import migrate_dotenv
+            except ImportError:
+                import sys
+
+                sys.path.insert(0, str(ROOT))
+                from app.envfile import migrate_dotenv
+            migrate_dotenv(ROOT / ".env", ROOT / ".env.example")
         except Exception:
             for destination, backup in reversed(changed):
                 if backup and backup.is_file():

@@ -133,6 +133,21 @@ app.add_middleware(
     max_age=60 * 60 * 24 * 30,
 )
 
+
+@app.middleware("http")
+async def disable_frontend_cache(request: Request, call_next):
+    response = await call_next(request)
+    path = request.url.path
+    if (
+        path.startswith("/static/js/")
+        or path.startswith("/static/css/")
+        or path in {"/", "/sw.js", "/ny-ide"}
+    ):
+        response.headers["Cache-Control"] = "no-store, max-age=0"
+        response.headers["Pragma"] = "no-cache"
+    return response
+
+
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 

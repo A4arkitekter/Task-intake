@@ -19,6 +19,20 @@ try {
     }
 } catch {}
 
+# Supervisoren starter python -m app igen, hvis den får lov at leve.
+$intakeProcesses = @(Get-CimInstance Win32_Process -Filter "Name = 'python.exe' OR Name = 'pythonw.exe'" -ErrorAction SilentlyContinue)
+foreach ($proc in $intakeProcesses) {
+    $line = [string]$proc.CommandLine
+    if (-not $line) { continue }
+    if ($line.IndexOf($repo, [StringComparison]::OrdinalIgnoreCase) -lt 0) { continue }
+    $isApp = $line -match '-m\s+app'
+    $isSupervisor = $line -like "*service_supervisor.py*"
+    if (-not ($isApp -or $isSupervisor)) { continue }
+    Stop-Process -Id $proc.ProcessId -Force -ErrorAction SilentlyContinue
+    Write-Host "Stoppede $($proc.Name) (PID $($proc.ProcessId))."
+    $stopped = $true
+}
+
 $connections = Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue
 foreach ($procId in ($connections.OwningProcess | Sort-Object -Unique)) {
     $process = Get-Process -Id $procId -ErrorAction SilentlyContinue

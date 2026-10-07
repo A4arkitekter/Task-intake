@@ -1,5 +1,5 @@
-import { api, formatWhen } from "./api.js";
-import { ensureAuth } from "./login.js";
+import { api, formatWhen } from "./api.js?v=11";
+import { ensureAuth } from "./login.js?v=11";
 
 let poll = null;
 let onVisible = null;

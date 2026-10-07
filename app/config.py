@@ -3,8 +3,11 @@ import os
 
 from dotenv import load_dotenv
 
+from app.envfile import migrate_dotenv
+
 ROOT = Path(__file__).resolve().parent.parent
 os.environ.setdefault("HF_HUB_DISABLE_SYMLINKS_WARNING", "1")
+migrate_dotenv(ROOT / ".env", ROOT / ".env.example")
 load_dotenv(ROOT / ".env")
 
 def _path_env(name: str, default: Path) -> Path:

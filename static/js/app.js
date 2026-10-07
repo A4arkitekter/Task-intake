@@ -1,6 +1,6 @@
-import { renderInbox } from "./inbox.js";
-import { renderCapture } from "./capture.js";
-import { ensureAuth } from "./login.js";
+import { renderInbox } from "./inbox.js?v=11";
+import { renderCapture } from "./capture.js?v=11";
+import { ensureAuth } from "./login.js?v=11";
 
 const root = document.querySelector("#app");
 
@@ -29,5 +29,10 @@ window.addEventListener("popstate", route);
 route();
 
 if ("serviceWorker" in navigator) {
-  navigator.serviceWorker.register("/sw.js").catch(() => {});
+  navigator.serviceWorker.getRegistrations()
+    .then((regs) => Promise.all(regs.map((reg) => reg.unregister())))
+    .then(() => caches.keys())
+    .then((keys) => Promise.all(keys.map((key) => caches.delete(key))))
+    .then(() => navigator.serviceWorker.register("/sw.js?v=11"))
+    .catch(() => {});
 }

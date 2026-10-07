@@ -92,9 +92,22 @@ try {
     if (Test-Path -LiteralPath (Join-Path $PSScriptRoot ".git") -PathType Container) {
         throw "Dette er en udviklingsmappe med Git. Opdater den med Git i stedet."
     }
-    if (-not $CheckOnly -and (Test-IntakeServerRunning)) {
-        if ($Automatic) { exit 0 }
-        throw "Programmet koerer. Stop det med scripts\stop.ps1, og proev igen."
+    if (-not $CheckOnly -and -not $Automatic -and (Test-IntakeServerRunning)) {
+        $stopScript = Join-Path $PSScriptRoot "scripts\stop.ps1"
+        if (Test-Path -LiteralPath $stopScript -PathType Leaf) {
+            Write-Host "Stopper den koerende instans..."
+            & $PSHOME\powershell.exe -NoProfile -ExecutionPolicy Bypass -File $stopScript
+        }
+        $deadline = (Get-Date).AddSeconds(25)
+        while ((Get-Date) -lt $deadline -and (Test-IntakeServerRunning)) {
+            Start-Sleep -Seconds 1
+        }
+        if (Test-IntakeServerRunning) {
+            throw "Kunne ikke stoppe programmet automatisk. Luk det, og proev igen."
+        }
+    }
+    if (-not $CheckOnly -and $Automatic -and (Test-IntakeServerRunning)) {
+        exit 0
     }
 
     if (-not $Source) { $Source = $defaultSource }
@@ -251,11 +264,22 @@ try {
     }
 
     Write-Host "Programmet er opdateret til $($latest.version)." -ForegroundColor Green
+    $python = Join-Path $PSScriptRoot ".venv\Scripts\python.exe"
+    if (Test-Path -LiteralPath $python -PathType Leaf) {
+        & $python -c "from pathlib import Path; from app.envfile import migrate_dotenv; root=Path(r'$PSScriptRoot'); migrate_dotenv(root/'.env', root/'.env.example')"
+    }
     & (Join-Path $PSHOME "powershell.exe") -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot "Test-InstallState.ps1") -Quiet
     if ($LASTEXITCODE -ne 0) {
         Write-Host "Installationskravene er aendret. Koer SETUP.bat en gang; runtime, .env og data bevares." -ForegroundColor Yellow
     } else {
-        Write-Host "SETUP.bat skal ikke koeres. Start programmet normalt." -ForegroundColor Green
+        Write-Host "SETUP.bat skal ikke koeres." -ForegroundColor Green
+    }
+    $starter = Join-Path $PSScriptRoot "Start-Indtagelse.ps1"
+    if (-not $Automatic -and (Test-Path -LiteralPath $starter -PathType Leaf)) {
+        Write-Host "Starter den opdaterede instans..."
+        Start-Process -FilePath "$PSHOME\powershell.exe" -ArgumentList @(
+            "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", $starter
+        )
     }
     exit 0
 } catch {

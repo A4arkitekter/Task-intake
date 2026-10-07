@@ -1,5 +1,5 @@
-const CACHE = "intake-v10";
-const PRECACHE = ["/", "/ny-ide", "/static/css/app.css", "/static/js/app.js", "/static/js/api.js", "/static/js/inbox.js", "/static/js/capture.js", "/static/js/login.js", "/static/brand/a4-logo.svg"];
+const CACHE = "intake-v11";
+const PRECACHE = ["/static/brand/a4-logo.svg", "/static/icons/icon-192.png"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -20,6 +20,16 @@ self.addEventListener("fetch", (event) => {
   if (request.method !== "GET") return;
   const url = new URL(request.url);
   if (url.pathname.startsWith("/api/")) return;
+  const mustBeFresh =
+    url.pathname.startsWith("/static/js/")
+    || url.pathname.startsWith("/static/css/")
+    || url.pathname === "/"
+    || url.pathname === "/ny-ide"
+    || url.pathname === "/sw.js";
+  if (mustBeFresh) {
+    event.respondWith(fetch(request, { cache: "reload" }));
+    return;
+  }
 
   event.respondWith(
     fetch(request)
