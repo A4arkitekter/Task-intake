@@ -70,6 +70,7 @@ class RepositoryContractTests(unittest.TestCase):
     def test_installed_start_handles_browser_requested_update_and_restart(self):
         script = (ROOT / "Start-Indtagelse.ps1").read_text(encoding="utf-8-sig")
         self.assertIn(r"tools\apply_update.py", script)
+        self.assertIn("apply_and_restart.py", (ROOT / "app" / "update.py").read_text(encoding="utf-8"))
         self.assertIn("$exitCode -ne 42", script)
         self.assertIn("Write-BrowserUpdateResult", script)
         self.assertNotIn("-Automatic", script)

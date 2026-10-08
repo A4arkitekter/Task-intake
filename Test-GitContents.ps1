@@ -21,7 +21,7 @@ $requiredFiles = @(
     "INSTALLATIONSVEJLEDNING.pdf",
     "BRUGERVEJLEDNING.pdf",
     "tools/generate_guides_pdf.py",
-    "tools/publish_update.py", "tools/apply_update.py",
+    "tools/publish_update.py", "tools/apply_update.py", "tools/apply_and_restart.py",
     "tools/service_supervisor.py", "tools/install_autostart.py"
 )
 

@@ -12,6 +12,7 @@ from pathlib import Path
 from app.config import ROOT
 
 UPDATE_SCRIPT_PATH = ROOT / "tools" / "apply_update.py"
+HANDOFF_SCRIPT_PATH = ROOT / "tools" / "apply_and_restart.py"
 UPDATE_RESULT_PATH = ROOT / ".browser-update-result.json"
 UPDATE_RESTART_EXIT_CODE = 42
 UPDATE_ACTION_TOKEN = uuid.uuid4().hex
@@ -93,11 +94,44 @@ def read_update_result() -> dict | None:
     return result
 
 
+def spawn_update_handoff(wait_pid: int | None = None) -> bool:
+    """Start opdatering i en løsrevet proces, så den overlever at serveren stopper."""
+    if not HANDOFF_SCRIPT_PATH.is_file():
+        return False
+    env = os.environ.copy()
+    env["INTAKE_WAIT_PID"] = str(os.getpid() if wait_pid is None else wait_pid)
+    creationflags = (
+        getattr(subprocess, "CREATE_NO_WINDOW", 0)
+        | getattr(subprocess, "DETACHED_PROCESS", 0)
+        | getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
+    )
+    try:
+        subprocess.Popen(
+            [sys.executable, str(HANDOFF_SCRIPT_PATH)],
+            cwd=str(ROOT),
+            env=env,
+            close_fds=True,
+            creationflags=creationflags,
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+    except OSError:
+        return False
+    return True
+
+
+def handoff_and_exit() -> None:
+    if spawn_update_handoff():
+        os._exit(0)
+    os._exit(UPDATE_RESTART_EXIT_CODE)
+
+
 def request_program_update_shutdown() -> None:
-    """Afslut efter HTTP-svaret; Start-Indtagelse.ps1 overtager opdateringen."""
+    """Afslut efter HTTP-svaret; en løsrevet proces opdaterer og starter igen."""
 
     def stop_later() -> None:
         time.sleep(1.0)
-        os._exit(UPDATE_RESTART_EXIT_CODE)
+        handoff_and_exit()
 
     threading.Thread(target=stop_later, daemon=True).start()
