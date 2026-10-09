@@ -1,5 +1,5 @@
-import { api, formatWhen } from "./api.js?v=18";
-import { ensureAuth } from "./login.js?v=18";
+import { api, formatWhen } from "./api.js?v=19";
+import { ensureAuth } from "./login.js?v=19";
 
 let poll = null;
 let onVisible = null;
@@ -77,6 +77,7 @@ async function loadDashboard(root) {
             <button class="primary" id="save-inbox" type="button">Gem sti</button>
           </div>
           ${inboxPathHintHtml(settings.inbox_dir || "")}
+          ${syncHelpHtml()}
         </div>
         <div class="field">
           <label for="remind-to">Mail til IT-support</label>
@@ -111,7 +112,6 @@ async function loadDashboard(root) {
         <p id="settings-msg" class="field-msg" hidden></p>
       </section>
     </div>
-    ${syncHelpHtml()}
     <section class="dash-card dash-catalog">
       <p class="dash-kicker">Katalog</p>
       <h2>Transkriptioner · 30 dage</h2>
@@ -328,32 +328,34 @@ function inboxPathHintHtml(path) {
 
 function syncHelpHtml() {
   return `
-    <section class="dash-card dash-help" aria-labelledby="sync-help-title">
-      <p class="dash-kicker">Fejlfinding</p>
-      <h2 id="sync-help-title">Optagelsen ligger i telefonen, men ikke på computeren</h2>
-      <p class="help-lead">Telefonen har ofte sat optageren eller OneDrive i dvale for at spare batteri. Så stopper synkroniseringen. Filen findes i appen, men kommer aldrig ind i mappen her.</p>
-      <p class="help-gdpr">Brug kun <strong>OneDrive</strong>. Det er et GDPR-krav. Andre skyer må ikke bruges.</p>
-      <div class="help-os">
-        <article>
-          <h3>Android</h3>
-          <p class="help-app">ASR Voice Recorder og OneDrive</p>
-          <ol>
-            <li>Indstillinger → Apps → <strong>ASR Voice Recorder</strong> → Batteri → vælg <strong>Ingen begrænsning</strong> (nogle telefoner siger Ubegrænset).</li>
-            <li>Gør det samme for <strong>OneDrive</strong>.</li>
-            <li>Åbn begge apps, og vent til filen vises i mappen på computeren.</li>
-          </ol>
-        </article>
-        <article>
-          <h3>iPhone</h3>
-          <p class="help-app">RecUp og OneDrive</p>
-          <ol>
-            <li>Indstillinger → Generelt → <strong>Baggrundsopdatering</strong>: slå til for RecUp og OneDrive.</li>
-            <li>Slå <strong>Lav strøm</strong> fra, mens du vil synke.</li>
-            <li>Åbn RecUp og OneDrive, og hold telefonen vågen på netværk et øjeblik.</li>
-          </ol>
-        </article>
+    <details class="disclose sync-help">
+      <summary>
+        <span>Virker synk ikke?</span>
+      </summary>
+      <div class="disclose-body">
+        <p class="help-lead">Hvis optagelsen ligger i telefonens app, men ikke i mappen her, har telefonen ofte sat optageren eller OneDrive i dvale for at spare batteri.</p>
+        <div class="help-os">
+          <article>
+            <h3>Android</h3>
+            <p class="help-app">ASR Voice Recorder og OneDrive</p>
+            <ol>
+              <li>Indstillinger → Apps → <strong>ASR Voice Recorder</strong> → Batteri → vælg <strong>Ingen begrænsning</strong> (nogle telefoner siger Ubegrænset).</li>
+              <li>Gør det samme for <strong>OneDrive</strong>.</li>
+              <li>Åbn begge apps, og vent til filen vises i mappen på computeren.</li>
+            </ol>
+          </article>
+          <article>
+            <h3>iPhone</h3>
+            <p class="help-app">RecUp og OneDrive</p>
+            <ol>
+              <li>Indstillinger → Generelt → <strong>Baggrundsopdatering</strong>: slå til for RecUp og OneDrive.</li>
+              <li>Slå <strong>Lav strøm</strong> fra, mens du vil synke.</li>
+              <li>Åbn RecUp og OneDrive, og hold telefonen vågen på netværk et øjeblik.</li>
+            </ol>
+          </article>
+        </div>
       </div>
-    </section>
+    </details>
   `;
 }
 
@@ -372,27 +374,23 @@ function selectedAssigneeHtml(settings) {
   const owner = (settings.wrike_token_owner || settings.wrike_assignee_name || "").trim();
   const id = settings.wrike_token_owner_id || settings.wrike_assignee_id || "";
   if (owner) {
-    return `<span data-account-id="${escapeAttr(id)}">${escapeHtml(owner)}</span>`;
+    return `<span data-account-id="${escapeAttr(id)}" data-token-owner="${escapeAttr(owner)}">${escapeHtml(owner)}</span>`;
   }
   return `<span data-account-id="">Nøglerne er ikke sat endnu.</span>`;
 }
 
 function tokenOwnerHint(settings) {
-  const owner = (settings.wrike_token_owner || "").trim();
-  if (owner) {
-    return `<p class="col-hint" data-token-owner="${escapeAttr(owner)}">Sådan ser Wrike dine nøgler. Er navnet forkert, skift nøglerne nederst på siden.</p>`;
-  }
-  return `<p class="col-hint">Indsæt dine Wrike-nøgler nederst på siden. Så vises dit navn her.</p>`;
+  if ((settings.wrike_token_owner || "").trim()) return "";
+  return `<p class="col-hint">Indsæt Wrike-nøglerne øverst. Så vises dit navn her.</p>`;
 }
 
-function wrikeKeysHtml(settings) {
+function wrikeKeysFormHtml(settings) {
   const ready = Boolean(settings.wrike_keys_ready);
-  const owner = (settings.wrike_token_owner || "").trim();
-  const status = owner
-    ? `<p class="col-hint" data-token-owner="${escapeAttr(owner)}">Wrike ser dig som <strong>${escapeHtml(owner)}</strong>. Hvis det ikke er dig, skal du lave din egen app i Wrike under Apps & Integrations, fanen API.</p>`
+  const intro = ready
+    ? `<p class="col-hint">Hvis det ikke er dig, skal du lave din egen app i Wrike under Apps & Integrations, fanen API.</p>`
     : `<p class="col-hint">Hver person laver sin egen Wrike-app. Kopiér ikke nøglerne fra en kollega.</p>`;
   return `
-    ${status}
+    ${intro}
     <ol class="wrike-steps">
       <li>Tryk <a href="https://www.wrike.com/frontend/apps/index.html#/api" target="_blank" rel="noopener">Åbn Wrike API-siden</a>.</li>
       <li>Log ind med <strong>din</strong> arbejdmail, hvis Wrike spørger.</li>
@@ -416,8 +414,26 @@ function wrikeKeysHtml(settings) {
       <input id="wrike-token" type="password" autocomplete="off" />
     </div>
     <div class="card-actions">
-      <button class="primary" id="save-wrike-keys" type="button">${ready ? "Skift nøgler" : "Gem nøgler"}</button>
+      <button class="primary" id="save-wrike-keys" type="button">${ready ? "Gem nye nøgler" : "Gem nøgler"}</button>
     </div>
+  `;
+}
+
+function wrikeKeysHtml(settings) {
+  const ready = Boolean(settings.wrike_keys_ready);
+  const owner = (settings.wrike_token_owner || "").trim();
+  if (!ready) return wrikeKeysFormHtml(settings);
+  const who = owner || "Wrike";
+  return `
+    <details class="disclose keys-panel">
+      <summary>
+        <span>Wrike ser dig som <strong>${escapeHtml(who)}</strong></span>
+        <span class="disclose-action">Skift nøgler</span>
+      </summary>
+      <div class="disclose-body">
+        ${wrikeKeysFormHtml(settings)}
+      </div>
+    </details>
   `;
 }
 

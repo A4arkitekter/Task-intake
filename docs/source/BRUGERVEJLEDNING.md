@@ -32,7 +32,7 @@ Første gang opretter du din egen Wrike-app og udfylder **Client ID**, **Secret 
 
 Du kan tale, mens computeren er slukket. Når PC'en tændes, henter OneDrive filen, og Indtagelse behandler den. Første overskrift efter opstart kan tage længere, især uden GPU.
 
-Ligger optagelsen i telefonens app, men ikke i mappen på computeren, har telefonen ofte sat appen i dvale. Administrationen har en **Fejlfinding**-boks med trin til Android og iPhone.
+Ligger optagelsen i telefonens app, men ikke i mappen på computeren, har telefonen ofte sat appen i dvale. Ved **Mappe med optagelser** står **Virker synk ikke?** med trin til Android og iPhone.
 
 Der er ingen grænse for, hvor længe du må tale. En lang indtaling giver én Wrike-opgave. Noten bliver et referat.
 

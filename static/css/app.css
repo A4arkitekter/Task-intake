@@ -591,6 +591,10 @@ body.capture-mode {
   margin: 0;
 }
 
+.field:has(.row-input) .sync-help {
+  grid-column: 1 / -1;
+}
+
 .lamps {
   display: grid;
   gap: 0.55rem;
@@ -637,25 +641,72 @@ body.capture-mode {
   font-size: 0.85rem;
 }
 
-.dash-help {
-  background: #f7f4ee;
-  border-color: #e4ddd0;
+.disclose {
+  margin-top: 0.35rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--paper);
+}
+
+.keys-panel {
+  margin-top: 0;
+}
+
+.disclose summary {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  cursor: pointer;
+  list-style: none;
+  padding: 0.7rem 0.85rem;
+  font-size: 0.95rem;
+  line-height: 1.4;
+}
+
+.disclose summary > span:first-child {
+  flex: 1;
+  min-width: 0;
+}
+
+.disclose summary::-webkit-details-marker {
+  display: none;
+}
+
+.disclose summary::after {
+  content: "";
+  flex: 0 0 0.55rem;
+  height: 0.55rem;
+  margin-left: 0.15rem;
+  border-right: 1.5px solid var(--muted);
+  border-bottom: 1.5px solid var(--muted);
+  transform: rotate(45deg) translateY(-0.12rem);
+}
+
+.disclose[open] summary::after {
+  transform: rotate(-135deg) translateY(-0.1rem);
+}
+
+.disclose-action {
+  color: var(--accent-dark);
+  font-size: 0.88rem;
+  font-weight: 600;
+  flex: 0 0 auto;
+}
+
+.disclose-body {
+  padding: 0.15rem 0.95rem 1rem;
+  border-top: 1px solid var(--line);
+  background: #fff;
+  border-radius: 0 0 var(--radius) var(--radius);
+}
+
+.disclose-body .field:first-of-type {
+  margin-top: 0.65rem;
 }
 
 .help-lead {
-  margin: 0 0 0.9rem;
+  margin: 0.75rem 0 0.9rem;
   line-height: 1.5;
-  max-width: 62ch;
-}
-
-.help-gdpr {
-  margin: 0 0 1.15rem;
-  padding: 0.7rem 0.85rem;
-  background: #fff;
-  border-left: 6px solid var(--accent);
-  border-radius: var(--radius);
-  font-size: 0.95rem;
-  line-height: 1.45;
 }
 
 .help-os {
@@ -665,7 +716,7 @@ body.capture-mode {
 }
 
 .help-os article {
-  background: #fff;
+  background: var(--paper);
   border: 1px solid var(--line);
   border-radius: var(--radius);
   padding: 0.95rem 1rem 1.05rem;
