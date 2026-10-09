@@ -566,8 +566,30 @@ body.capture-mode {
   align-items: stretch;
 }
 
-.row-input input { flex: 1; }
+.row-input input { flex: 1; min-width: 0; }
 .row-input .primary { white-space: nowrap; }
+
+.field:has(.row-input) {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  column-gap: 0.5rem;
+  row-gap: 0.4rem;
+  align-items: start;
+}
+
+.field:has(.row-input) > label,
+.field:has(.row-input) > .field-label {
+  grid-column: 1 / -1;
+}
+
+.field:has(.row-input) .row-input {
+  display: contents;
+}
+
+.field:has(.row-input) .col-hint {
+  grid-column: 1;
+  margin: 0;
+}
 
 .lamps {
   display: grid;
@@ -776,5 +798,10 @@ body.capture-mode {
   .help-os { grid-template-columns: 1fr; }
   .catalog-row { flex-direction: column; }
   .job-meta { justify-content: flex-start; }
-  .row-input { flex-direction: column; }
+  .field:has(.row-input) {
+    grid-template-columns: 1fr;
+  }
+  .field:has(.row-input) .primary {
+    justify-self: start;
+  }
 }

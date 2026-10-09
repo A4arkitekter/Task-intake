@@ -58,7 +58,7 @@ C:\Users\<windows-login>\OneDrive\Apps\ASR Cloud Uploads\asr
    5. Siden skriver **Wrike ser dig som: [dit navn]**. Er det en kollegas navn, er token forkert.
 
    Token arver den brugers mapper. Derfor kan I ikke dele de tre nøgler.
-6. Udfyld **arbejdmail** og ret optagelsesmappen, hvis stien er forkert. Wrike-mappe og prioritet (High som standard) vælges samme sted.
+6. Udfyld **mail til IT-support** (besked kun ved fejl) og ret optagelsesmappen, hvis stien er forkert. Wrike-mappe og prioritet (High som standard) vælges samme sted.
 7. Dobbeltklik `SYSTEMTJEK.bat`. Ved fejl sendes kun `fejlrapport.zip` til IT - ikke `.env` og ikke lyd.
 
 GPU er en bonus. Uden NVIDIA kører Whisper og Ollama på CPU. Programmet starter ved login, så OneDrive-filer bliver behandlet uden at du åbner et sort vindue.

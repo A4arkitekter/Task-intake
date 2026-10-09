@@ -1,5 +1,5 @@
-import { api, formatWhen } from "./api.js?v=16";
-import { ensureAuth } from "./login.js?v=16";
+import { api, formatWhen } from "./api.js?v=18";
+import { ensureAuth } from "./login.js?v=18";
 
 let poll = null;
 let onVisible = null;
@@ -79,12 +79,12 @@ async function loadDashboard(root) {
           ${inboxPathHintHtml(settings.inbox_dir || "")}
         </div>
         <div class="field">
-          <label for="remind-to">Din arbejdmail</label>
+          <label for="remind-to">Mail til IT-support</label>
           <div class="row-input">
-            <input id="remind-to" value="${escapeAttr(settings.remind_to || "")}" placeholder="navn@a4.dk" />
+            <input id="remind-to" value="${escapeAttr(settings.remind_to || "")}" placeholder="it@a4.dk" />
             <button class="primary" id="save-remind" type="button">Gem mail</button>
           </div>
-          <p class="col-hint">Bruges kun, hvis et job fejler.</p>
+          <p class="col-hint">IT får besked her, hvis en optagelse ikke kan behandles. Ideer i Wrike sender ingen mail.</p>
         </div>
         <div class="field">
           <span class="field-label">Wrike konto</span>

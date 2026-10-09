@@ -30,7 +30,7 @@ Kollegaens mappe er **ikke** et Git-repository.
 
    Hvis stien indeholder `runtime\runtime`, er mappen lagt ét niveau for dybt.
 
-3. Dobbeltklik `SETUP.bat`. Godkend Windows-vinduer, der dukker op bagved. Der er ingen spørgsmål. Når programmet åbner i browseren, opretter kollegaen sin egen Wrike-app og indsætter Client ID, Secret key og Permanent access token — kopiér ikke dine nøgler. Udfyld arbejdmail samme sted.
+3. Dobbeltklik `SETUP.bat`. Godkend Windows-vinduer, der dukker op bagved. Der er ingen spørgsmål. Når programmet åbner i browseren, opretter kollegaen sin egen Wrike-app og indsætter Client ID, Secret key og Permanent access token — kopiér ikke dine nøgler. Udfyld mail til IT-support samme sted (kun ved fejl).
 4. Dobbeltklik `SYSTEMTJEK.bat`. Send kun `fejlrapport.zip` til IT ved fejl — ikke `.env` og ikke lyd.
 5. Programmet starter af sig selv ved login. Manuelt: `START.bat`.
 
