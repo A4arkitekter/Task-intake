@@ -342,8 +342,9 @@ def _folder_subtitle(*, title: str, path: str, space: dict[str, Any] | None) -> 
     return " · ".join(part for part in parts if part)
 
 
-def list_folders(*, query: str = "", account_id: str = "") -> list[dict[str, Any]]:
-    account_id = account_id.strip()
+def list_folders(*, query: str = "") -> list[dict[str, Any]]:
+    identity = token_identity()
+    account_id = str((identity or {}).get("id") or "").strip()
     if not account_id:
         return []
     payload = _cached_list(_folders_cache, "/folders")
@@ -457,7 +458,7 @@ def create_task(
     owner_id = responsible_id.strip()
     owner_name = responsible_name.strip() or owner_id
     if not owner_id:
-        raise WrikeError("Vælg en Wrike-konto i administrationen.")
+        raise WrikeError("Wrike-nøglerne mangler, eller de virker ikke. Indsæt dem i administrationen.")
     level = importance if importance in {"High", "Normal", "Low"} else "High"
     payload = _request(
         "POST",

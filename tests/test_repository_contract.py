@@ -256,6 +256,9 @@ class RepositoryContractTests(unittest.TestCase):
         self.assertIn("tokenOwnerHint", script)
         self.assertIn("wrike_token_owner", script)
         self.assertIn("wrikeKeysHtml", script)
+        self.assertNotIn("assignee-search", script)
+        self.assertNotIn("Søg for at skifte konto", script)
+        self.assertIn("Sådan ser Wrike dine nøgler", script)
 
     def test_powershell_start_script_has_valid_syntax_and_safe_port_handling(self):
         script_path = ROOT / "Start-Indtagelse.ps1"

@@ -1,4 +1,4 @@
-import { api } from "./api.js?v=13";
+import { api } from "./api.js?v=14";
 
 const FALLBACK_MAX_SECONDS = 600;
 const mimeCandidates = [

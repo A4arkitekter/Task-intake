@@ -85,28 +85,31 @@ def processing_health() -> dict:
 
 
 def ensure_default_assignee(data: dict) -> dict:
-    if data.get("wrike_assignee_id") or not wrike.token_is_set():
+    if not wrike.token_is_set():
         return data
     identity = wrike.token_identity()
     if not identity:
         return data
-    saved = settings.save(
+    if (
+        data.get("wrike_assignee_id") == identity["id"]
+        and data.get("wrike_assignee_name") == identity["name"]
+    ):
+        return data
+    return settings.save(
         {
             "wrike_assignee_id": identity["id"],
             "wrike_assignee_name": identity["name"],
         }
     )
-    return saved
 
 
 def ensure_default_folder(data: dict) -> dict:
     if data.get("wrike_folder_id") or not wrike.credentials_are_set():
         return data
-    account_id = str(data.get("wrike_assignee_id") or "").strip()
-    if not account_id:
+    if not wrike.token_identity():
         return data
     try:
-        folders = wrike.list_folders(account_id=account_id)
+        folders = wrike.list_folders()
     except wrike.WrikeError as exc:
         logger.info("Kunne ikke vælge standardmappe i Wrike: %s", exc)
         return data

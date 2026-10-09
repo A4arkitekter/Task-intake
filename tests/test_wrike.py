@@ -67,16 +67,14 @@ class WrikeTests(unittest.TestCase):
                 return contacts
             raise AssertionError(path)
 
-        with patch("app.wrike._request", side_effect=fake_request):
-            self.assertEqual(wrike.list_folders(query="personal"), [])
-            mine = {row["id"]: row for row in wrike.list_folders(query="personal", account_id="KU1")}
-            other = {row["id"]: row for row in wrike.list_folders(query="personal", account_id="KU2")}
-            nested = wrike.list_folders(query="task-intake", account_id="KU1")
+        self.assertEqual(wrike.list_folders(query="personal"), [])
+        with patch.dict(os.environ, {"WRIKE_TOKEN": "test-token"}):
+            with patch("app.wrike._request", side_effect=fake_request):
+                mine = {row["id"]: row for row in wrike.list_folders(query="personal")}
+                nested = wrike.list_folders(query="task-intake")
         self.assertEqual(set(mine), {"SPACE1", "F1"})
         self.assertNotIn("SPACE2", mine)
         self.assertEqual(mine["SPACE1"]["subtitle"], "Din mappe")
-        self.assertEqual(set(other), {"SPACE2"})
-        self.assertEqual(other["SPACE2"]["subtitle"], "Din mappe")
         self.assertEqual(nested[0]["id"], "F1")
         self.assertEqual(nested[0]["subtitle"], "Din mappe")
         self.assertEqual(nested[0]["label"], "task-intake · Din mappe")

@@ -151,6 +151,31 @@ class ApiTests(unittest.TestCase):
         self.assertEqual(creator.call_args.kwargs["folder_id"], "FOLDER1")
         self.assertEqual(creator.call_args.kwargs["importance"], "High")
 
+    def test_admin_cannot_switch_wrike_account(self):
+        from app import settings as admin_settings
+
+        admin_settings.save(
+            {
+                "wrike_assignee_id": "KU1",
+                "wrike_assignee_name": "Eric Prescott",
+                "wrike_folder_id": "FOLDER1",
+                "wrike_folder_name": "Indbakke",
+            }
+        )
+        response = self.client.patch(
+            "/api/admin/settings",
+            json={
+                "wrike_assignee_id": "KU2",
+                "wrike_assignee_name": "Anna Jensen",
+                "wrike_folder_id": "FOLDER2",
+            },
+        )
+        self.assertEqual(response.status_code, 200, response.text)
+        saved = response.json()["settings"]
+        self.assertEqual(saved["wrike_assignee_id"], "KU1")
+        self.assertEqual(saved["wrike_assignee_name"], "Eric Prescott")
+        self.assertEqual(saved["wrike_folder_id"], "FOLDER2")
+
     def test_admin_saves_folder_and_priority_without_env(self):
         response = self.client.patch(
             "/api/admin/settings",

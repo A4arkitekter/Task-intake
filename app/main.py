@@ -258,6 +258,8 @@ async def patch_admin_settings(request: Request, _: None = Depends(require_user)
     payload = await request.json()
     if not isinstance(payload, dict):
         raise HTTPException(status_code=400, detail="Ugyldigt indhold")
+    payload.pop("wrike_assignee_id", None)
+    payload.pop("wrike_assignee_name", None)
     try:
         data = admin_settings.save(payload)
     except ValueError as exc:
@@ -293,9 +295,9 @@ async def admin_wrike_credentials(request: Request, _: None = Depends(require_us
 
 
 @app.get("/api/admin/wrike/folders")
-def admin_wrike_folders(q: str = "", account: str = "", _: None = Depends(require_user)) -> dict:
+def admin_wrike_folders(q: str = "", _: None = Depends(require_user)) -> dict:
     try:
-        folders = wrike.list_folders(query=q, account_id=account)
+        folders = wrike.list_folders(query=q)
     except wrike.WrikeError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
     return {"folders": folders[:80]}
@@ -316,7 +318,7 @@ def admin_wrike_test(_: None = Depends(require_user)) -> dict:
     try:
         task = wrike.create_task(
             title="Test fra Indtagelse",
-            description="Denne opgave er oprettet fra administrationssiden, så du kan se at mappen, Wrike-kontoen og prioriteten virker.",
+            description="Denne opgave er oprettet fra administrationssiden, så du kan se at mappen og prioriteten virker.",
             folder_id=data["wrike_folder_id"],
             importance="High",
             responsible_id=data["wrike_assignee_id"],

@@ -17,7 +17,7 @@ Programmet venter, til filen er færdig med at synke, og flytter den derefter ud
 
 Åbn [http://127.0.0.1:7000](http://127.0.0.1:7000) hvis browseren ikke kommer af sig selv. Der er intet login. Hvis IT har valgt en anden port fra 7000 og op, bruges den adresse i stedet.
 
-Første gang opretter du din egen Wrike-app og udfylder **Client ID**, **Secret key** og **Permanent access token** efter trinnene i administrationen. Lampen **Wrike API** viser, hvem nøglerne tilhører. Står der en kollegas navn, skal du indsætte dine egne. Derefter vælger du **Wrike-konto**, **Wrike-mappe** og **prioritet** (High som standard). **Opret testopgave** viser, at API'et og mappen virker.
+Første gang opretter du din egen Wrike-app og udfylder **Client ID**, **Secret key** og **Permanent access token** efter trinnene i administrationen. **Wrike konto** viser, hvem nøglerne tilhører — den kan ikke skiftes. Står der en kollegas navn, skal du indsætte dine egne nøgler. Derefter vælger du **Wrike-mappe** og **prioritet** (High som standard). **Opret testopgave** viser, at API'et og mappen virker.
 
 | Handling | Betydning |
 |---|---|

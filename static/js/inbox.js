@@ -1,5 +1,5 @@
-import { api, formatWhen } from "./api.js?v=13";
-import { ensureAuth } from "./login.js?v=13";
+import { api, formatWhen } from "./api.js?v=14";
+import { ensureAuth } from "./login.js?v=14";
 
 let poll = null;
 let onVisible = null;
@@ -8,7 +8,6 @@ let serverInstanceId = "";
 let updateOutcomeShown = false;
 let lastJobsHash = "";
 let folderTimer = null;
-let assigneeTimer = null;
 const UPDATE_RESULT_KEY = "indtagelse-update-result";
 
 export async function renderInbox(root) {
@@ -89,14 +88,12 @@ async function loadDashboard(root) {
         <div class="field">
           <span class="field-label">Wrike konto</span>
           <div id="selected-assignee" class="field-value">${selectedAssigneeHtml(settings)}</div>
-          <input id="assignee-search" placeholder="Søg for at skifte konto…" />
-          <div id="assignee-results" class="folder-results"></div>
           ${tokenOwnerHint(settings)}
         </div>
         <div class="field">
           <span class="field-label">Wrike-mappe</span>
           <div id="selected-folder" class="field-value">${selectedFolderHtml(settings)}</div>
-          <input id="folder-search" placeholder="Søg i kontoens mapper…" />
+          <input id="folder-search" placeholder="Søg i dine mapper…" />
           <div id="folder-results" class="folder-results"></div>
         </div>
         <div class="field">
@@ -134,7 +131,6 @@ function bindSettings(root) {
   const saveKeys = root.querySelector("#save-wrike-keys");
   const importance = root.querySelector("#importance");
   const search = root.querySelector("#folder-search");
-  const assigneeSearch = root.querySelector("#assignee-search");
   const testBtn = root.querySelector("#test-wrike");
   saveInbox?.addEventListener("click", async () => {
     await saveSettings(root, { inbox_dir: inbox.value });
@@ -151,10 +147,6 @@ function bindSettings(root) {
   search?.addEventListener("input", () => {
     clearTimeout(folderTimer);
     folderTimer = setTimeout(() => searchFolders(root, search.value), 250);
-  });
-  assigneeSearch?.addEventListener("input", () => {
-    clearTimeout(assigneeTimer);
-    assigneeTimer = setTimeout(() => searchContacts(root, assigneeSearch.value), 250);
   });
   testBtn?.addEventListener("click", async () => {
     testBtn.disabled = true;
@@ -196,10 +188,6 @@ async function saveSettings(root, body) {
   }
 }
 
-function selectedAccountId(root) {
-  return (root.querySelector("#selected-assignee [data-account-id]")?.getAttribute("data-account-id") || "").trim();
-}
-
 async function searchFolders(root, query) {
   const box = root.querySelector("#folder-results");
   if (!box) return;
@@ -207,19 +195,14 @@ async function searchFolders(root, query) {
     box.innerHTML = "";
     return;
   }
-  const accountId = selectedAccountId(root);
-  if (!accountId) {
-    box.innerHTML = `<p class="empty">Vælg Wrike-konto først.</p>`;
-    return;
-  }
   try {
-    const data = await api(`/api/admin/wrike/folders?q=${encodeURIComponent(query.trim())}&account=${encodeURIComponent(accountId)}`);
+    const data = await api(`/api/admin/wrike/folders?q=${encodeURIComponent(query.trim())}`);
     const folders = data.folders || [];
     if (!folders.length) {
       const owner = (root.querySelector("[data-token-owner]")?.getAttribute("data-token-owner") || "").trim();
       const hint = owner
         ? ` Ingen mapper matcher. API'et kan kun se mapper som ${owner} har adgang til.`
-        : " Ingen mapper matcher.";
+        : " Ingen mapper matcher. Indsæt Wrike-nøgler først, hvis kontoen ovenfor er tom.";
       box.innerHTML = `<p class="empty">${escapeHtml(hint.trim())}</p>`;
       return;
     }
@@ -243,45 +226,6 @@ async function searchFolders(root, query) {
         const search = root.querySelector("#folder-search");
         if (search) search.value = "";
         box.innerHTML = "";
-      });
-    });
-  } catch (error) {
-    box.innerHTML = `<p class="empty">${escapeHtml(error.message)}</p>`;
-  }
-}
-
-async function searchContacts(root, query) {
-  const box = root.querySelector("#assignee-results");
-  if (!box) return;
-  if (!query.trim()) {
-    box.innerHTML = "";
-    return;
-  }
-  try {
-    const data = await api(`/api/admin/wrike/contacts?q=${encodeURIComponent(query.trim())}`);
-    const contacts = data.contacts || [];
-    if (!contacts.length) {
-      box.innerHTML = `<p class="empty">Ingen personer matcher.</p>`;
-      return;
-    }
-    box.innerHTML = contacts.map((person) => `
-      <button type="button" class="folder-item" data-assignee-id="${escapeAttr(person.id)}" data-assignee-title="${escapeAttr(person.name || person.title)}">
-        ${escapeHtml(person.title)}
-      </button>
-    `).join("");
-    box.querySelectorAll("[data-assignee-id]").forEach((button) => {
-      button.addEventListener("click", async () => {
-        await saveSettings(root, {
-          wrike_assignee_id: button.getAttribute("data-assignee-id"),
-          wrike_assignee_name: button.getAttribute("data-assignee-title"),
-          wrike_folder_id: "",
-          wrike_folder_name: "",
-        });
-        const search = root.querySelector("#assignee-search");
-        if (search) search.value = "";
-        box.innerHTML = "";
-        const folderResults = root.querySelector("#folder-results");
-        if (folderResults) folderResults.innerHTML = "";
       });
     });
   } catch (error) {
@@ -368,8 +312,8 @@ function lampsHtml(health) {
 }
 
 function selectedFolderHtml(settings) {
-  if (!settings.wrike_assignee_id) {
-    return "Vælg Wrike-konto først.";
+  if (!(settings.wrike_token_owner || settings.wrike_assignee_id)) {
+    return "Indsæt Wrike-nøgler først.";
   }
   if (settings.wrike_folder_name || settings.wrike_folder_id) {
     const extra = settings.wrike_folder_defaulted ? " · valgt automatisk, du kan skifte" : "";
@@ -379,18 +323,20 @@ function selectedFolderHtml(settings) {
 }
 
 function selectedAssigneeHtml(settings) {
-  const id = settings.wrike_assignee_id || "";
-  const name = settings.wrike_assignee_name || id;
-  if (name) {
-    return `<span data-account-id="${escapeAttr(id)}">${escapeHtml(name)}</span>`;
+  const owner = (settings.wrike_token_owner || settings.wrike_assignee_name || "").trim();
+  const id = settings.wrike_token_owner_id || settings.wrike_assignee_id || "";
+  if (owner) {
+    return `<span data-account-id="${escapeAttr(id)}">${escapeHtml(owner)}</span>`;
   }
-  return `<span data-account-id="">Ingen konto valgt. Søg nedenfor.</span>`;
+  return `<span data-account-id="">Nøglerne er ikke sat endnu.</span>`;
 }
 
 function tokenOwnerHint(settings) {
   const owner = (settings.wrike_token_owner || "").trim();
-  if (!owner) return "";
-  return `<p class="col-hint" data-token-owner="${escapeAttr(owner)}">API'et arbejder som ${escapeHtml(owner)}. Mapper, den person ikke kan se, vises ikke.</p>`;
+  if (owner) {
+    return `<p class="col-hint" data-token-owner="${escapeAttr(owner)}">Sådan ser Wrike dine nøgler. Er navnet forkert, skift nøglerne nederst på siden.</p>`;
+  }
+  return `<p class="col-hint">Indsæt dine Wrike-nøgler nederst på siden. Så vises dit navn her.</p>`;
 }
 
 function wrikeKeysHtml(settings) {
