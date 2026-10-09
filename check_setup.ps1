@@ -112,9 +112,11 @@ if (Test-Path -LiteralPath ".env" -PathType Leaf) {
     if ($clientLine -and $clientLine.Matches[0].Groups[1].Value.Trim()) { $clientSet = $true }
     if ($secretLine -and $secretLine.Matches[0].Groups[1].Value.Trim()) { $secretSet = $true }
 }
-if ($tokenSet) { Ok "Wrike-token er sat i .env" }
-elseif ($clientSet -and $secretSet) { Warn "Client ID og Secret Key er sat, men Wrike-API'et bruger et Permanent Access Token. Klik Get token på samme Wrike-side og sæt WRIKE_TOKEN." }
-else { Warn "Wrike-nøgle mangler i .env. Sæt WRIKE_CLIENT_ID, WRIKE_CLIENT_SECRET og WRIKE_TOKEN. Mappe og ansvarlig vælges i browseren." }
+if ($tokenSet -and $clientSet -and $secretSet) {
+    Ok "Wrikes tre nøgler er sat (Client ID, Client secret og token)."
+} else {
+    Warn "Wrikes nøgler mangler. Åbn http://127.0.0.1:7000 og udfyld Client ID, Client secret og Get token i browseren. Log ind i Wrike som dig selv."
+}
 
 try {
     $outlook = New-Object -ComObject Outlook.Application

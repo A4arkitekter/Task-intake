@@ -17,7 +17,7 @@ Programmet venter, til filen er færdig med at synke, og flytter den derefter ud
 
 Åbn [http://127.0.0.1:7000](http://127.0.0.1:7000) hvis browseren ikke kommer af sig selv. Der er intet login. Hvis IT har valgt en anden port fra 7000 og op, bruges den adresse i stedet.
 
-Her vælger du **Wrike-mappe** (søg og klik) og **prioritet** (High, Normal eller Low). Første gang vælger programmet selv en mappe som Indbakke/Inbox, hvis den findes. **Opret testopgave** viser, at API'et og mappen virker.
+Første gang opretter du din egen Wrike-app og udfylder **Client ID**, **Secret key** og **Permanent access token** efter trinnene i administrationen. Lampen **Wrike API** viser, hvem nøglerne tilhører. Står der en kollegas navn, skal du indsætte dine egne. Derefter vælger du **Wrike-konto**, **Wrike-mappe** og **prioritet** (High som standard). **Opret testopgave** viser, at API'et og mappen virker.
 
 | Handling | Betydning |
 |---|---|
@@ -51,6 +51,7 @@ Dobbeltklik `SYSTEMTJEK.bat`, eller hent `fejlrapport.zip` fra administrationen.
 | Problem | Løsning |
 |---|---|
 | Ingen nye idéer | Kontrollér stien til optagelser i browseren, og at filen er færdig med at synke. |
-| Wrike-lampen er rød | Token i `.env` eller netværk. Mappe og prioritet rettes i browseren. |
+| Wrike-lampen er rød | Udfyld Client ID, Client secret og Get token i administrationen, logget ind i Wrike som dig selv. |
+| Mapperne i Wrike mangler | Nøglerne tilhører en anden. Siden skriver navnet. Opret din egen app (+ App) og indsæt Client ID, Secret key og Permanent access token. |
 | Whisper eller Ollama advarer | Vent, eller kør SYSTEMTJEK.bat. CPU virker, men er langsommere. |
 | Programmet starter ikke | Kør SYSTEMTJEK.bat. Bed IT om SETUP.bat, hvis startfilen siger det. |

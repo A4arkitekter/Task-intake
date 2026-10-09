@@ -147,16 +147,23 @@ class RepositoryContractTests(unittest.TestCase):
 
     def test_setup_asks_for_inbox_path_and_work_email(self):
         script = (ROOT / "setup.ps1").read_text(encoding="utf-8-sig")
-        self.assertIn("Optagelser hentes fra denne mappe", script)
+        self.assertNotIn("Read-Host", script)
+        self.assertIn("Wrike-nøgler, optagelsesmappe og arbejdmail udfyldes i browseren", script)
         self.assertIn("Dropbox\\Apps\\ASRRecordings", script)
         self.assertIn("OneDrive", script)
-        self.assertIn("Wrike Permanent Access Token", script)
         self.assertIn("RecUp Memos", script)
-        self.assertIn("Tryk Enter for at bruge den, eller skriv en anden sti", script)
-        self.assertIn("Din arbejdmail", script)
-        self.assertIn("gyldig mailadresse", script)
         self.assertNotIn("Adgangskoden til indbakken", script)
         self.assertNotIn("APP_PASSWORD=$password", script)
+        inbox = (ROOT / "static" / "js" / "inbox.js").read_text(encoding="utf-8")
+        self.assertIn("/api/admin/wrike/credentials", inbox)
+        self.assertIn("wrike-client-id", inbox)
+        self.assertIn("wrike-client-secret", inbox)
+        self.assertIn("wrike-token", inbox)
+        self.assertIn("Create new app", inbox)
+        self.assertIn("Get token", inbox)
+        self.assertIn("Secret key", inbox)
+        self.assertIn("Permanent access token", inbox)
+        self.assertIn("remind-to", inbox)
         self.assertIn("data\\audio", script)
         self.assertIn("data\\behandlet", script)
         self.assertIn("/NORESTART", script)
@@ -246,6 +253,9 @@ class RepositoryContractTests(unittest.TestCase):
         self.assertIn("X-Update-Token", script)
         self.assertIn("waitForUpdatedServer", script)
         self.assertIn("sawOffline", script)
+        self.assertIn("tokenOwnerHint", script)
+        self.assertIn("wrike_token_owner", script)
+        self.assertIn("wrikeKeysHtml", script)
 
     def test_powershell_start_script_has_valid_syntax_and_safe_port_handling(self):
         script_path = ROOT / "Start-Indtagelse.ps1"

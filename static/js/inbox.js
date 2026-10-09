@@ -1,5 +1,5 @@
-import { api, formatWhen } from "./api.js?v=11";
-import { ensureAuth } from "./login.js?v=11";
+import { api, formatWhen } from "./api.js?v=13";
+import { ensureAuth } from "./login.js?v=13";
 
 let poll = null;
 let onVisible = null;
@@ -68,6 +68,8 @@ async function loadDashboard(root) {
       </section>
       <section class="dash-card dash-settings">
         <p class="dash-kicker">Indstillinger</p>
+        <h2>Wrike-nøgler</h2>
+        ${wrikeKeysHtml(settings)}
         <h2>Hvor lander opgaverne</h2>
         <div class="field">
           <label for="inbox-dir">Mappe med optagelser</label>
@@ -77,10 +79,19 @@ async function loadDashboard(root) {
           </div>
         </div>
         <div class="field">
+          <label for="remind-to">Din arbejdmail</label>
+          <div class="row-input">
+            <input id="remind-to" value="${escapeAttr(settings.remind_to || "")}" placeholder="navn@a4.dk" />
+            <button class="primary" id="save-remind" type="button">Gem mail</button>
+          </div>
+          <p class="col-hint">Bruges kun, hvis et job fejler.</p>
+        </div>
+        <div class="field">
           <span class="field-label">Wrike konto</span>
           <div id="selected-assignee" class="field-value">${selectedAssigneeHtml(settings)}</div>
           <input id="assignee-search" placeholder="Søg for at skifte konto…" />
           <div id="assignee-results" class="folder-results"></div>
+          ${tokenOwnerHint(settings)}
         </div>
         <div class="field">
           <span class="field-label">Wrike-mappe</span>
@@ -118,12 +129,21 @@ async function loadDashboard(root) {
 function bindSettings(root) {
   const saveInbox = root.querySelector("#save-inbox");
   const inbox = root.querySelector("#inbox-dir");
+  const saveRemind = root.querySelector("#save-remind");
+  const remindTo = root.querySelector("#remind-to");
+  const saveKeys = root.querySelector("#save-wrike-keys");
   const importance = root.querySelector("#importance");
   const search = root.querySelector("#folder-search");
   const assigneeSearch = root.querySelector("#assignee-search");
   const testBtn = root.querySelector("#test-wrike");
   saveInbox?.addEventListener("click", async () => {
     await saveSettings(root, { inbox_dir: inbox.value });
+  });
+  saveRemind?.addEventListener("click", async () => {
+    await saveSettings(root, { remind_to: remindTo.value });
+  });
+  saveKeys?.addEventListener("click", async () => {
+    await saveWrikeKeys(root);
   });
   importance?.addEventListener("change", async () => {
     await saveSettings(root, { wrike_importance: importance.value });
@@ -196,7 +216,11 @@ async function searchFolders(root, query) {
     const data = await api(`/api/admin/wrike/folders?q=${encodeURIComponent(query.trim())}&account=${encodeURIComponent(accountId)}`);
     const folders = data.folders || [];
     if (!folders.length) {
-      box.innerHTML = `<p class="empty">Ingen mapper matcher.</p>`;
+      const owner = (root.querySelector("[data-token-owner]")?.getAttribute("data-token-owner") || "").trim();
+      const hint = owner
+        ? ` Ingen mapper matcher. API'et kan kun se mapper som ${owner} har adgang til.`
+        : " Ingen mapper matcher.";
+      box.innerHTML = `<p class="empty">${escapeHtml(hint.trim())}</p>`;
       return;
     }
     box.innerHTML = folders.map((folder) => {
@@ -361,6 +385,83 @@ function selectedAssigneeHtml(settings) {
     return `<span data-account-id="${escapeAttr(id)}">${escapeHtml(name)}</span>`;
   }
   return `<span data-account-id="">Ingen konto valgt. Søg nedenfor.</span>`;
+}
+
+function tokenOwnerHint(settings) {
+  const owner = (settings.wrike_token_owner || "").trim();
+  if (!owner) return "";
+  return `<p class="col-hint" data-token-owner="${escapeAttr(owner)}">API'et arbejder som ${escapeHtml(owner)}. Mapper, den person ikke kan se, vises ikke.</p>`;
+}
+
+function wrikeKeysHtml(settings) {
+  const ready = Boolean(settings.wrike_keys_ready);
+  const owner = (settings.wrike_token_owner || "").trim();
+  const status = owner
+    ? `<p class="col-hint" data-token-owner="${escapeAttr(owner)}">Wrike ser dig som <strong>${escapeHtml(owner)}</strong>. Er det en kollega, skal du lave din egen app og indsætte dine nøgler.</p>`
+    : `<p class="col-hint">Hver person laver sin egen Wrike-app. Kopiér ikke nøglerne fra en kollega.</p>`;
+  return `
+    ${status}
+    <ol class="wrike-steps">
+      <li>Tryk <a href="https://www.wrike.com/frontend/apps/index.html#/api" target="_blank" rel="noopener">Åbn Wrike API-siden</a>.</li>
+      <li>Log ind med <strong>din</strong> arbejdmail, hvis Wrike spørger.</li>
+      <li>Tryk <strong>+ App</strong> (Create new app). App-navn: <strong>Indtagelse</strong>. Gem.</li>
+      <li>Kopiér <strong>Client ID</strong> (det grå felt under OAuth).</li>
+      <li>Kopiér <strong>Secret key</strong>. Tryk øje-ikonet, hvis feltet er stjerner.</li>
+      <li>Scroll ned til <strong>Permanent access token</strong>. Tryk <strong>Get token</strong> / <strong>Obtain token</strong>. Wrike kan bede om din adgangskode.</li>
+      <li>Indsæt de tre værdier her og tryk Gem nøgler. Siden skal vise <strong>dit</strong> navn.</li>
+    </ol>
+    <p class="col-hint">Client ID og Secret key er din app. Token er dig. “Wrike account A4” betyder firmaets Wrike — ikke at nøglerne må deles.</p>
+    <div class="field">
+      <label for="wrike-client-id">Client ID</label>
+      <input id="wrike-client-id" autocomplete="off" ${ready ? "placeholder=\"Udfyld kun, hvis du skifter nøgler\"" : ""} />
+    </div>
+    <div class="field">
+      <label for="wrike-client-secret">Secret key</label>
+      <input id="wrike-client-secret" type="password" autocomplete="off" />
+    </div>
+    <div class="field">
+      <label for="wrike-token">Permanent access token</label>
+      <input id="wrike-token" type="password" autocomplete="off" />
+    </div>
+    <div class="card-actions">
+      <button class="primary" id="save-wrike-keys" type="button">${ready ? "Skift nøgler" : "Gem nøgler"}</button>
+    </div>
+  `;
+}
+
+async function saveWrikeKeys(root) {
+  const clientId = root.querySelector("#wrike-client-id")?.value.trim() || "";
+  const clientSecret = root.querySelector("#wrike-client-secret")?.value.trim() || "";
+  const token = root.querySelector("#wrike-token")?.value.trim() || "";
+  if (!clientId || !clientSecret || !token) {
+    setSettingsMsg(root, "Udfyld alle tre felter: Client ID, Secret key og Permanent access token.");
+    return;
+  }
+  const button = root.querySelector("#save-wrike-keys");
+  if (button) {
+    button.disabled = true;
+    button.textContent = "Tjekker…";
+  }
+  try {
+    const data = await api("/api/admin/wrike/credentials", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        client_id: clientId,
+        client_secret: clientSecret,
+        token,
+      }),
+    });
+    await loadDashboard(root);
+    setSettingsMsg(root, data.message || "Gemt.");
+  } catch (error) {
+    setSettingsMsg(root, error.message);
+  } finally {
+    if (button) {
+      button.disabled = false;
+      button.textContent = "Gem nøgler";
+    }
+  }
 }
 
 function jobsHtml(jobs) {

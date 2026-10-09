@@ -7,6 +7,7 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+from pathlib import Path
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -45,15 +46,32 @@ def credentials_are_set() -> bool:
     return bool(token()) or (bool(client_id()) and bool(client_secret()))
 
 
-def _request(method: str, path: str, payload: dict | None = None) -> dict[str, Any]:
-    secret = token()
+def credentials_complete() -> bool:
+    return bool(token() and client_id() and client_secret())
+
+
+def clear_caches() -> None:
+    for cache in (_health_cache, _folders_cache, _contacts_cache, _spaces_cache):
+        cache["at"] = 0.0
+        cache["value"] = None
+
+
+def apply_credentials(*, client_id_value: str, client_secret_value: str, token_value: str) -> None:
+    os.environ["WRIKE_CLIENT_ID"] = client_id_value.strip()
+    os.environ["WRIKE_CLIENT_SECRET"] = client_secret_value.strip()
+    os.environ["WRIKE_TOKEN"] = token_value.strip()
+    clear_caches()
+
+
+def _request(method: str, path: str, payload: dict | None = None, *, bearer: str | None = None) -> dict[str, Any]:
+    secret = (bearer if bearer is not None else token()).strip()
     if not secret:
         if client_id() and client_secret():
             raise WrikeError(
-                "Client ID og Secret Key er sat, men Wrike-API'et bruger et Permanent Access Token. "
-                "Klik Get token på samme Wrike-side og sæt WRIKE_TOKEN i .env."
+                "Client ID og Secret Key er sat, men Get token mangler. "
+                "Udfyld de tre nøgler i administrationen."
             )
-        raise WrikeError("Wrike-nøgle mangler. Sæt Client ID, Secret Key og token i .env.")
+        raise WrikeError("Udfyld Client ID, Client secret og Get token i administrationen.")
     url = f"{API_BASE}{path}"
     data = None
     headers = {"Authorization": f"Bearer {secret}", "Accept": "application/json"}
@@ -87,13 +105,11 @@ def health(*, force: bool = False) -> dict[str, Any]:
         return cached
     if not token_is_set():
         if client_id() and client_secret():
-            message = (
-                "Client ID er sat. Klik Get token på samme Wrike-side og sæt WRIKE_TOKEN i .env."
-            )
+            message = "Client ID og Secret er sat. Indsæt Get token i administrationen."
         elif client_id() or client_secret():
-            message = "Udfyld både WRIKE_CLIENT_ID og WRIKE_CLIENT_SECRET i .env."
+            message = "Udfyld både Client ID og Client secret i administrationen."
         else:
-            message = "Wrike-nøgle mangler. Sæt Client ID, Secret Key og token i .env."
+            message = "Udfyld Client ID, Client secret og Get token i administrationen."
         value = {"ok": False, "level": "red", "message": message}
         _health_cache["at"] = now
         _health_cache["value"] = value
@@ -102,10 +118,15 @@ def health(*, force: bool = False) -> dict[str, Any]:
         contacts = _request("GET", "/contacts")
         _contacts_cache["at"] = now
         _contacts_cache["value"] = contacts
+        identity = token_identity()
+        owner = str((identity or {}).get("label") or "").strip()
+        extra = f" som {owner}" if owner else ""
         value = {
             "ok": True,
             "level": "green",
-            "message": "API er i orden.",
+            "message": f"API er i orden{extra}.",
+            "owner": owner,
+            "owner_id": str((identity or {}).get("id") or ""),
         }
     except WrikeError as exc:
         value = {"ok": False, "level": "red", "message": str(exc)}
@@ -123,6 +144,87 @@ def _cached_list(cache: dict[str, Any], path: str) -> dict[str, Any]:
     cache["at"] = now
     cache["value"] = payload
     return payload
+
+
+def _identity_from_contacts(payload: dict[str, Any]) -> dict[str, str] | None:
+    names, me_id = _contact_index(payload)
+    if not me_id:
+        people = [
+            item
+            for item in (payload.get("data") or [])
+            if isinstance(item, dict) and not item.get("deleted") and item.get("id")
+        ]
+        if len(people) == 1:
+            me_id = str(people[0].get("id") or "").strip()
+            names, _ignored = _contact_index({"data": people})
+    if not me_id:
+        return None
+    email = ""
+    for item in payload.get("data") or []:
+        if not isinstance(item, dict) or str(item.get("id") or "").strip() != me_id:
+            continue
+        for profile in item.get("profiles") or []:
+            if isinstance(profile, dict):
+                email = str(profile.get("email") or "").strip()
+                if email:
+                    break
+        break
+    name = names.get(me_id, me_id)
+    label = f"{name} ({email})" if email and email.casefold() not in name.casefold() else name
+    return {"id": me_id, "name": name, "email": email, "label": label}
+
+
+def token_identity() -> dict[str, str] | None:
+    """Hvem Wrike-tokenet tilhører. Mapper og rettigheder følger denne person."""
+    if not token_is_set():
+        return None
+    try:
+        payload = _cached_list(_contacts_cache, "/contacts")
+    except WrikeError:
+        return None
+    return _identity_from_contacts(payload)
+
+
+def identity_for_token(secret: str) -> dict[str, str]:
+    payload = _request("GET", "/contacts?me=true", bearer=secret.strip())
+    identity = _identity_from_contacts(payload)
+    if not identity:
+        raise WrikeError(
+            "Wrike svarede, men viste ikke hvem du er. Log ind som dig selv og tryk Get token igen."
+        )
+    return identity
+
+
+def save_installed_credentials(
+    *,
+    client_id_value: str,
+    client_secret_value: str,
+    token_value: str,
+    env_path: Path | None = None,
+) -> dict[str, str]:
+    from app.config import ROOT
+    from app.envfile import upsert_dotenv
+
+    client_id_value = client_id_value.strip()
+    client_secret_value = client_secret_value.strip()
+    token_value = token_value.strip()
+    if not client_id_value or not client_secret_value or not token_value:
+        raise WrikeError("Udfyld Client ID, Client secret og Get token.")
+    identity = identity_for_token(token_value)
+    upsert_dotenv(
+        env_path or (ROOT / ".env"),
+        {
+            "WRIKE_CLIENT_ID": client_id_value,
+            "WRIKE_CLIENT_SECRET": client_secret_value,
+            "WRIKE_TOKEN": token_value,
+        },
+    )
+    apply_credentials(
+        client_id_value=client_id_value,
+        client_secret_value=client_secret_value,
+        token_value=token_value,
+    )
+    return identity
 
 
 def _contact_index(payload: dict[str, Any]) -> tuple[dict[str, str], str]:

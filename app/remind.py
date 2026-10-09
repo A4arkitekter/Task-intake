@@ -97,7 +97,7 @@ def send_email(subject: str, body: str, *, send: bool = True) -> bool:
     try:
         outlook = win32com.client.Dispatch("Outlook.Application")
         mail = outlook.CreateItem(0)
-        mail.To = REMIND_TO
+        mail.To = remind_destination()
         mail.Subject = subject
         mail.Body = body
         if send:
@@ -122,8 +122,14 @@ def send_now(*, now: datetime | None = None) -> bool:
     subject, body = build_message(items, now)
     if not send_email(subject, body):
         return False
-    logger.info("Sendte fejlmail til %s: %s", REMIND_TO, subject)
+    logger.info("Sendte fejlmail til %s: %s", remind_destination(), subject)
     return True
+
+
+def remind_destination() -> str:
+    from app import settings as admin_settings
+
+    return (admin_settings.load().get("remind_to") or REMIND_TO or "").strip()
 
 
 def is_due(now: datetime, last_sent: str | None) -> bool:
@@ -154,7 +160,7 @@ def send_reminder_if_due(now: datetime | None = None) -> bool:
 
     _last_failure = 0.0
     db.set_state(STATE_KEY, now.date().isoformat())
-    logger.info("Sendte fejlmail til %s: %s", REMIND_TO, subject)
+    logger.info("Sendte fejlmail til %s: %s", remind_destination(), subject)
     return True
 
 
@@ -185,5 +191,5 @@ def start() -> Reminder | None:
         return None
     reminder = Reminder()
     threading.Thread(target=reminder.run, daemon=True, name="daily-reminder").start()
-    logger.info("Fejlmail sendes til %s omkring %s, kun når noget er fejlet", REMIND_TO, REMIND_AT)
+    logger.info("Fejlmail sendes til %s omkring %s, kun når noget er fejlet", remind_destination(), REMIND_AT)
     return reminder

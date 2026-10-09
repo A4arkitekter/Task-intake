@@ -84,6 +84,21 @@ def processing_health() -> dict:
     return _lamp(level, " ".join(parts) or "Behandling ukendt", ok=bool(whisper.get("ok") and ollama.get("ok")))
 
 
+def ensure_default_assignee(data: dict) -> dict:
+    if data.get("wrike_assignee_id") or not wrike.token_is_set():
+        return data
+    identity = wrike.token_identity()
+    if not identity:
+        return data
+    saved = settings.save(
+        {
+            "wrike_assignee_id": identity["id"],
+            "wrike_assignee_name": identity["name"],
+        }
+    )
+    return saved
+
+
 def ensure_default_folder(data: dict) -> dict:
     if data.get("wrike_folder_id") or not wrike.credentials_are_set():
         return data
@@ -109,11 +124,12 @@ def ensure_default_folder(data: dict) -> dict:
 
 
 def public_settings() -> dict:
-    return ensure_default_folder(settings.load())
+    return ensure_default_folder(ensure_default_assignee(settings.load()))
 
 
 def payload() -> dict:
     data = public_settings()
+    identity = wrike.token_identity() if wrike.token_is_set() else None
     return {
         "ok": True,
         "settings": {
@@ -124,6 +140,10 @@ def payload() -> dict:
             "wrike_folder_defaulted": bool(data.get("wrike_folder_defaulted")),
             "wrike_assignee_id": data["wrike_assignee_id"],
             "wrike_assignee_name": data["wrike_assignee_name"],
+            "wrike_token_owner": str((identity or {}).get("label") or ""),
+            "wrike_token_owner_id": str((identity or {}).get("id") or ""),
+            "wrike_keys_ready": wrike.credentials_complete(),
+            "remind_to": data.get("remind_to") or "",
         },
         "health": {
             "wrike": wrike.health(),

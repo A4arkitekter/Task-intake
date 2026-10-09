@@ -183,33 +183,12 @@ function Initialize-LocalDataDirs {
 function Write-ColleagueEnv([bool]$UseGpu) {
     $envPath = Join-Path $PSScriptRoot ".env"
     if (Test-Path -LiteralPath $envPath -PathType Leaf) {
-        Write-Status "Eksisterende .env bevares."
+        Write-Status "Eksisterende .env bevares. Wrike-nøgler, mappe og mail sættes i browseren."
         return
     }
     Copy-Item -LiteralPath (Join-Path $PSScriptRoot ".env.example") -Destination $envPath
     $secret = New-Secret 40
     $inbox = Get-DefaultInboxDir
-    $mail = ""
-    $token = ""
-    if (-not $NonInteractive) {
-        Write-Host ""
-        Write-Host "Android: ASR Voice Recorder -> OneDrive\Apps\ASR Cloud Uploads\asr" -ForegroundColor Cyan
-        Write-Host "iPhone: RecUp -> OneDrive (eller Dropbox\Apps\RecUp Memos)" -ForegroundColor Cyan
-        Write-Host "Optagelser hentes fra denne mappe:" -ForegroundColor Cyan
-        Write-Host "  $inbox"
-        $inboxTyped = Read-Host "Tryk Enter for at bruge den, eller skriv en anden sti"
-        if ($inboxTyped.Trim()) { $inbox = $inboxTyped.Trim().Trim('"') }
-        $token = (Read-Host "Wrike Permanent Access Token (Get token på API-appen). Mappe og ansvarlig vælges bagefter i browseren").Trim()
-        do {
-            $mail = (Read-Host "Din arbejdmail (den daglige rykker, hvis noget ikke kom i Wrike)").Trim()
-            if ($mail -notmatch '^[^@\s]+@[^@\s]+\.[^@\s]+$') {
-                Write-Host "Skriv en gyldig mailadresse, for eksempel navn@a4.dk." -ForegroundColor Yellow
-                $mail = ""
-            }
-        } while (-not $mail)
-    } else {
-        $mail = "kollega@a4.dk"
-    }
     $device = if ($UseGpu) { "cuda" } else { "cpu" }
     $compute = if ($UseGpu) { "int8_float16" } else { "int8" }
     $modelDir = Join-Path $PSScriptRoot "data\models"
@@ -218,10 +197,7 @@ function Write-ColleagueEnv([bool]$UseGpu) {
         "SECRET_KEY=skift-denne-til-en-lang-tilfaeldig-streng" = "SECRET_KEY=$secret"
         "WHISPER_DEVICE=cpu" = "WHISPER_DEVICE=$device"
         "WHISPER_COMPUTE_TYPE=int8" = "WHISPER_COMPUTE_TYPE=$compute"
-        "MAIL_CC=ep@a4.dk" = "MAIL_CC=$mail"
-        "WRIKE_TOKEN=" = "WRIKE_TOKEN=$token"
         "# INBOX_DIR=C:\Users\dig\OneDrive\Apps\ASR Cloud Uploads\asr" = "INBOX_DIR=$inbox"
-        "# REMIND_TO=dig@firma.dk" = "REMIND_TO=$mail"
     }
     $updated = foreach ($line in $lines) {
         $out = $line
@@ -232,6 +208,7 @@ function Write-ColleagueEnv([bool]$UseGpu) {
     }
     $updated += "MODEL_DIR=$modelDir"
     Set-Content -LiteralPath $envPath -Value $updated -Encoding utf8
+    Write-Status "Wrike-nøgler, optagelsesmappe og arbejdmail udfyldes i browseren efter start."
     if (-not (Test-Path -LiteralPath $inbox -PathType Container)) {
         Write-Status "Optagelsesmappen $inbox findes endnu ikke. Det er i orden — sæt ASR (Android) eller RecUp (iPhone) og OneDrive op bagefter. Stien kan også rettes i browseren." Yellow
     }

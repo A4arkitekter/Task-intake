@@ -42,17 +42,23 @@ Hvis stien indeholder `runtime\runtime`, er mappen lagt ét niveau for dybt. Git
 ### 3. Kør SETUP.bat
 
 1. Dobbeltklik den lokale `SETUP.bat`.
-2. Du skal **kun** svare på optagelsesmappe, Wrike-token og arbejdmail. Godkend en Windows-UAC, hvis den ligger bagved. **Skriv ikke ollama**, og brug ikke Ollamas vindue — luk det, hvis det kommer. Setup kører videre af sig selv.
-3. Setup viser den mappe, optagelser hentes fra. Den finder selv ASR i OneDrive (`Apps\ASR Cloud Uploads\asr`) eller RecUp, hvis mappen allerede findes. Som reserve vises stadig `Dropbox\Apps\ASRRecordings`. Stien kan rettes senere i browseren.
+2. Du skal **ikke skrive noget** i SETUP. Godkend en Windows-UAC, hvis den ligger bagved. **Skriv ikke ollama**, og brug ikke Ollamas vindue — luk det, hvis det kommer. Setup kører færdig af sig selv.
+3. Setup finder selv mappen, optagelser hentes fra: ASR i OneDrive (`Apps\ASR Cloud Uploads\asr`) eller RecUp, med `Dropbox\Apps\ASRRecordings` som reserve. Stien rettes i browseren bagefter. Android bruger ASR Voice Recorder; iPhone bruger RecUp. ASR findes ikke i App Store.
 
 ```text
 C:\Users\<windows-login>\OneDrive\Apps\ASR Cloud Uploads\asr
 ```
+4. Vent, til opsætningen er færdig. Åbn [http://127.0.0.1:7000](http://127.0.0.1:7000).
+5. I administrationen står der trin for trin, hvad du skal kopiere fra Wrike. Du skal indsætte **tre nøgler**, som du selv laver — ikke en kollegas:
 
-   Tryk Enter, hvis stien er rigtig. Ellers skriv RecUps mappe, fx `Dropbox\Apps\RecUp Memos`. Android bruger ASR Voice Recorder; iPhone bruger RecUp. ASR findes ikke i App Store.
-4. Sæt **Wrike API-token** én gang. Wrike-mappe og prioritet (High som standard) vælges bagefter i browseren.
-5. Skriv din **arbejdmail**. Den bruges til den daglige rykker, når et job ikke kom i Wrike.
-6. Vent, til opsætningen er færdig.
+   1. Tryk **Åbn Wrike API-siden**.
+   2. Log ind med **din** arbejdmail.
+   3. Tryk **+ App**. App-navn: **Indtagelse**. Gem. En almindelig Wrike-bruger kan gøre det — det er tjekket.
+   4. Kopiér **Client ID**, **Secret key** (øje-ikonet viser teksten) og **Permanent access token** (Get token / Obtain token). Indsæt i de tre felter. Tryk **Gem nøgler**.
+   5. Siden skriver **Wrike ser dig som: [dit navn]**. Er det en kollegas navn, er token forkert.
+
+   Token arver den brugers mapper. Derfor kan I ikke dele de tre nøgler.
+6. Udfyld **arbejdmail** og ret optagelsesmappen, hvis stien er forkert. Wrike-mappe og prioritet (High som standard) vælges samme sted.
 7. Dobbeltklik `SYSTEMTJEK.bat`. Ved fejl sendes kun `fejlrapport.zip` til IT - ikke `.env` og ikke lyd.
 
 GPU er en bonus. Uden NVIDIA kører Whisper og Ollama på CPU. Programmet starter ved login, så OneDrive-filer bliver behandlet uden at du åbner et sort vindue.

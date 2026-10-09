@@ -268,6 +268,30 @@ async def patch_admin_settings(request: Request, _: None = Depends(require_user)
     return {"ok": True, "settings": data}
 
 
+@app.post("/api/admin/wrike/credentials")
+async def admin_wrike_credentials(request: Request, _: None = Depends(require_user)) -> dict:
+    payload = await request.json()
+    if not isinstance(payload, dict):
+        raise HTTPException(status_code=400, detail="Ugyldigt indhold")
+    try:
+        identity = wrike.save_installed_credentials(
+            client_id_value=str(payload.get("client_id") or ""),
+            client_secret_value=str(payload.get("client_secret") or ""),
+            token_value=str(payload.get("token") or ""),
+        )
+    except wrike.WrikeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    admin_dashboard.ensure_default_assignee(admin_settings.load())
+    data = admin_dashboard.payload()
+    return {
+        "ok": True,
+        "owner": identity["label"],
+        "message": f"Wrike ser dig som {identity['label']}.",
+        "settings": data["settings"],
+        "health": data["health"],
+    }
+
+
 @app.get("/api/admin/wrike/folders")
 def admin_wrike_folders(q: str = "", account: str = "", _: None = Depends(require_user)) -> dict:
     try:

@@ -48,6 +48,28 @@ def render_migrated(example_text: str, existing: dict[str, str]) -> str:
     return "\n".join(lines).rstrip() + "\n"
 
 
+def upsert_dotenv(env_path: Path, updates: dict[str, str]) -> None:
+    """Sæt navngivne nøgler i .env uden at røre andre linjer."""
+    text = env_path.read_text(encoding="utf-8-sig") if env_path.is_file() else ""
+    lines = text.splitlines()
+    found: set[str] = set()
+    out: list[str] = []
+    for raw in lines:
+        stripped = raw.strip()
+        if stripped and not stripped.startswith("#") and "=" in raw:
+            key = raw.split("=", 1)[0].strip()
+            if key in updates:
+                out.append(f"{key}={updates[key]}")
+                found.add(key)
+                continue
+        out.append(raw)
+    for key, value in updates.items():
+        if key not in found:
+            out.append(f"{key}={value}")
+    env_path.parent.mkdir(parents=True, exist_ok=True)
+    env_path.write_text("\n".join(out).rstrip() + "\n", encoding="utf-8")
+
+
 def migrate_dotenv(env_path: Path, example_path: Path) -> bool:
     """Udfyld manglende nøgler og fjern forældede. Returnerer True hvis filen blev skrevet."""
     if not example_path.is_file():

@@ -2,7 +2,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from app.envfile import migrate_dotenv, parse_assignments
+from app.envfile import migrate_dotenv, parse_assignments, upsert_dotenv
 
 
 class EnvfileTests(unittest.TestCase):
@@ -49,3 +49,22 @@ class EnvfileTests(unittest.TestCase):
             self.assertTrue(migrate_dotenv(env_path, example))
             self.assertFalse(migrate_dotenv(env_path, example))
             self.assertEqual(parse_assignments(env_path.read_text(encoding="utf-8"))["WRIKE_TOKEN"], "abc")
+
+    def test_upsert_dotenv_sets_wrike_keys_without_dropping_others(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            env_path = Path(tmp) / ".env"
+            env_path.write_text("SECRET_KEY=x\nWRIKE_TOKEN=\nINBOX_DIR=C:\\optagelser\n", encoding="utf-8")
+            upsert_dotenv(
+                env_path,
+                {
+                    "WRIKE_CLIENT_ID": "cid",
+                    "WRIKE_CLIENT_SECRET": "csec",
+                    "WRIKE_TOKEN": "tok",
+                },
+            )
+            values = parse_assignments(env_path.read_text(encoding="utf-8"))
+            self.assertEqual(values["SECRET_KEY"], "x")
+            self.assertEqual(values["INBOX_DIR"], r"C:\optagelser")
+            self.assertEqual(values["WRIKE_CLIENT_ID"], "cid")
+            self.assertEqual(values["WRIKE_CLIENT_SECRET"], "csec")
+            self.assertEqual(values["WRIKE_TOKEN"], "tok")

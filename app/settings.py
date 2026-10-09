@@ -13,6 +13,7 @@ _lock = threading.Lock()
 
 _DEFAULTS = {
     "inbox_dir": "",
+    "remind_to": "",
     "wrike_folder_id": "",
     "wrike_folder_name": "",
     "wrike_importance": "High",
@@ -47,6 +48,8 @@ def load() -> dict:
         data["wrike_folder_name"] = str(data.get("wrike_folder_name") or "").strip()
         data["wrike_assignee_id"] = str(data.get("wrike_assignee_id") or "").strip()
         data["wrike_assignee_name"] = str(data.get("wrike_assignee_name") or "").strip()
+        remind_to = str(data.get("remind_to") or "").strip()
+        data["remind_to"] = remind_to or (os.getenv("REMIND_TO") or os.getenv("MAIL_CC") or "").strip()
         return data
 
 
@@ -70,6 +73,11 @@ def save(updates: dict) -> dict:
         data["wrike_assignee_id"] = str(updates.get("wrike_assignee_id") or "").strip()
     if "wrike_assignee_name" in updates:
         data["wrike_assignee_name"] = str(updates.get("wrike_assignee_name") or "").strip()
+    if "remind_to" in updates:
+        mail = str(updates.get("remind_to") or "").strip()
+        if mail and "@" not in mail:
+            raise ValueError("Skriv en gyldig arbejdmail, for eksempel navn@a4.dk")
+        data["remind_to"] = mail
     SETTINGS_PATH.parent.mkdir(parents=True, exist_ok=True)
     with _lock:
         SETTINGS_PATH.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")

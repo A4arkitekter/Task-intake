@@ -488,5 +488,59 @@ class UpdateApiTests(unittest.TestCase):
         self.assertFalse(status["update_available"])
 
 
+class WrikeCredentialsApiTests(unittest.TestCase):
+    def setUp(self):
+        self.client = TestClient(app)
+
+    def test_empty_wrike_keys_are_rejected(self):
+        from app import wrike as wrike_mod
+
+        with patch(
+            "app.main.wrike.save_installed_credentials",
+            side_effect=wrike_mod.WrikeError("Udfyld Client ID, Client secret og Get token."),
+        ):
+            response = self.client.post(
+                "/api/admin/wrike/credentials",
+                json={"client_id": "", "client_secret": "", "token": ""},
+            )
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("Client ID", response.json()["detail"])
+
+    def test_saved_wrike_keys_are_not_echoed(self):
+        identity = {
+            "id": "KU1",
+            "name": "Anna Jensen",
+            "email": "aj@a4.dk",
+            "label": "Anna Jensen (aj@a4.dk)",
+        }
+        payload = {
+            "settings": {
+                "wrike_keys_ready": True,
+                "wrike_token_owner": "Anna Jensen (aj@a4.dk)",
+            },
+            "health": {"wrike": {"ok": True, "message": "API er i orden som Anna Jensen (aj@a4.dk)."}},
+        }
+        with (
+            patch("app.main.wrike.save_installed_credentials", return_value=identity),
+            patch("app.main.admin_dashboard.ensure_default_assignee"),
+            patch("app.main.admin_dashboard.payload", return_value=payload),
+        ):
+            response = self.client.post(
+                "/api/admin/wrike/credentials",
+                json={
+                    "client_id": "cid-secret",
+                    "client_secret": "sec-secret",
+                    "token": "tok-superhemmelig",
+                },
+            )
+        self.assertEqual(response.status_code, 200, response.text)
+        body = response.json()
+        dumped = str(body)
+        self.assertNotIn("tok-superhemmelig", dumped)
+        self.assertNotIn("cid-secret", dumped)
+        self.assertNotIn("sec-secret", dumped)
+        self.assertEqual(body["owner"], "Anna Jensen (aj@a4.dk)")
+
+
 if __name__ == "__main__":
     unittest.main()

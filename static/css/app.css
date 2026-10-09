@@ -503,6 +503,20 @@ body.capture-mode {
   margin: 0 0 0.75rem;
 }
 
+.dash-settings h2:not(:first-of-type) {
+  margin-top: 1.45rem;
+}
+
+.wrike-steps {
+  margin: 0.35rem 0 0.85rem 1.15rem;
+  padding: 0;
+  font-size: 0.95rem;
+}
+
+.wrike-steps li {
+  margin: 0.28rem 0;
+}
+
 .dash-card label,
 .field-label {
   display: block;

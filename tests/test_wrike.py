@@ -1,6 +1,7 @@
 import os
 import tempfile
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 
 os.environ["WHISPER_WARMUP"] = "0"
@@ -101,6 +102,7 @@ class WrikeTests(unittest.TestCase):
         self.assertIn("wrike.com", task["url"])
 
     def test_list_contacts_keeps_people_and_skips_groups(self):
+        wrike._contacts_cache.update({"at": 0.0, "value": None})
         payload = {
             "data": [
                 {
@@ -137,6 +139,86 @@ class WrikeTests(unittest.TestCase):
                 folder_id="FOLDER1",
                 importance="High",
             )
+
+    def test_token_identity_uses_the_me_contact(self):
+        wrike._contacts_cache.update({"at": 0.0, "value": None})
+        contacts = {
+            "data": [
+                {
+                    "id": "KU1",
+                    "firstName": "Eric",
+                    "lastName": "Prescott",
+                    "type": "Person",
+                    "me": True,
+                    "profiles": [{"email": "ep@a4.dk"}],
+                },
+                {"id": "KU2", "firstName": "Anna", "lastName": "Jensen", "type": "Person"},
+            ]
+        }
+        with (
+            patch.dict(os.environ, {"WRIKE_TOKEN": "abc"}),
+            patch("app.wrike._request", return_value=contacts),
+        ):
+            identity = wrike.token_identity()
+        self.assertEqual(identity["id"], "KU1")
+        self.assertEqual(identity["name"], "Eric Prescott")
+        self.assertIn("ep@a4.dk", identity["label"])
+
+    def test_health_names_token_owner(self):
+        wrike._health_cache.update({"at": 0.0, "value": None})
+        wrike._contacts_cache.update({"at": 0.0, "value": None})
+        contacts = {
+            "data": [
+                {
+                    "id": "KU1",
+                    "firstName": "Eric",
+                    "lastName": "Prescott",
+                    "type": "Person",
+                    "me": True,
+                    "profiles": [{"email": "ep@a4.dk"}],
+                }
+            ]
+        }
+        with (
+            patch.dict(os.environ, {"WRIKE_TOKEN": "abc", "WRIKE_CLIENT_ID": "", "WRIKE_CLIENT_SECRET": ""}),
+            patch("app.wrike._request", return_value=contacts),
+        ):
+            status = wrike.health(force=True)
+        self.assertTrue(status["ok"])
+        self.assertIn("Eric Prescott", status["message"])
+        self.assertEqual(status["owner_id"], "KU1")
+
+    def test_save_installed_credentials_writes_env_and_applies(self):
+        contacts = {
+            "data": [
+                {
+                    "id": "KU9",
+                    "firstName": "Anna",
+                    "lastName": "Jensen",
+                    "type": "Person",
+                    "me": True,
+                    "profiles": [{"email": "aj@a4.dk"}],
+                }
+            ]
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            env_path = Path(tmp) / ".env"
+            env_path.write_text("WRIKE_TOKEN=\nSECRET_KEY=x\n", encoding="utf-8")
+            with (
+                patch("app.wrike._request", return_value=contacts),
+                patch.dict(os.environ, {"WRIKE_TOKEN": "", "WRIKE_CLIENT_ID": "", "WRIKE_CLIENT_SECRET": ""}),
+            ):
+                identity = wrike.save_installed_credentials(
+                    client_id_value="cid",
+                    client_secret_value="csec",
+                    token_value="tok",
+                    env_path=env_path,
+                )
+                self.assertEqual(os.environ["WRIKE_TOKEN"], "tok")
+            values = env_path.read_text(encoding="utf-8")
+        self.assertEqual(identity["id"], "KU9")
+        self.assertIn("WRIKE_TOKEN=tok", values)
+        self.assertIn("WRIKE_CLIENT_ID=cid", values)
 
     def test_health_asks_for_permanent_token_when_only_client_secrets_exist(self):
         with patch.dict(
