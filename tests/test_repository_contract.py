@@ -259,6 +259,11 @@ class RepositoryContractTests(unittest.TestCase):
         self.assertNotIn("assignee-search", script)
         self.assertNotIn("Søg for at skifte konto", script)
         self.assertIn("Sådan ser Wrike dine nøgler", script)
+        self.assertIn("syncHelpHtml", script)
+        self.assertIn("GDPR", script)
+        self.assertIn("Ingen begrænsning", script)
+        self.assertIn("Baggrundsopdatering", script)
+        self.assertIn("isOneDrivePath", script)
 
     def test_powershell_start_script_has_valid_syntax_and_safe_port_handling(self):
         script_path = ROOT / "Start-Indtagelse.ps1"

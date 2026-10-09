@@ -4,9 +4,9 @@ Tal en idé ind på telefonen. Programmet opretter opgaven direkte i Wrike med d
 
 ## Sådan kommer en idé ind
 
-1. Optag på telefonen og slå upload til **OneDrive** til:
+1. Optag på telefonen og slå upload til **OneDrive** til. OneDrive er et GDPR-krav — Dropbox og andre skyer må ikke bruges.
    - **Android:** **ASR Voice Recorder** (Play Butik). Filen lander typisk i `OneDrive\Apps\ASR Cloud Uploads\asr`.
-   - **iPhone:** **RecUp** (App Store). Filen kan lande i OneDrive eller `Dropbox\Apps\RecUp Memos` / `Dropbox\Apps\RecUp`.
+   - **iPhone:** **RecUp** (App Store). Filen skal lande i OneDrive, ikke Dropbox.
 2. Det skal være **samme mappe**, du ser under Optagelser på [http://127.0.0.1:7000](http://127.0.0.1:7000). Stien kan rettes der — du skal ikke åbne en `.env`-fil.
 3. Computeren skal køre Indtagelse (den starter ved login). Du behøver ikke have telefonen på nettet, mens PC'en behandler filen.
 4. Hold mappen **lokal**. En fil, der kun ligger online, er en tom pladsholder og bliver sprunget over.
@@ -31,6 +31,8 @@ Første gang opretter du din egen Wrike-app og udfylder **Client ID**, **Secret 
 ## Telefon og computer
 
 Du kan tale, mens computeren er slukket. Når PC'en tændes, henter OneDrive filen, og Indtagelse behandler den. Første overskrift efter opstart kan tage længere, især uden GPU.
+
+Ligger optagelsen i telefonens app, men ikke i mappen på computeren, har telefonen ofte sat appen i dvale. Administrationen har en **Fejlfinding**-boks med trin til Android og iPhone.
 
 Der er ingen grænse for, hvor længe du må tale. En lang indtaling giver én Wrike-opgave. Noten bliver et referat.
 

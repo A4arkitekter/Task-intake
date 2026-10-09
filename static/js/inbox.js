@@ -1,5 +1,5 @@
-import { api, formatWhen } from "./api.js?v=14";
-import { ensureAuth } from "./login.js?v=14";
+import { api, formatWhen } from "./api.js?v=16";
+import { ensureAuth } from "./login.js?v=16";
 
 let poll = null;
 let onVisible = null;
@@ -76,6 +76,7 @@ async function loadDashboard(root) {
             <input id="inbox-dir" value="${escapeAttr(settings.inbox_dir || "")}" />
             <button class="primary" id="save-inbox" type="button">Gem sti</button>
           </div>
+          ${inboxPathHintHtml(settings.inbox_dir || "")}
         </div>
         <div class="field">
           <label for="remind-to">Din arbejdmail</label>
@@ -110,6 +111,7 @@ async function loadDashboard(root) {
         <p id="settings-msg" class="field-msg" hidden></p>
       </section>
     </div>
+    ${syncHelpHtml()}
     <section class="dash-card dash-catalog">
       <p class="dash-kicker">Katalog</p>
       <h2>Transkriptioner · 30 dage</h2>
@@ -134,6 +136,8 @@ function bindSettings(root) {
   const testBtn = root.querySelector("#test-wrike");
   saveInbox?.addEventListener("click", async () => {
     await saveSettings(root, { inbox_dir: inbox.value });
+    const hint = root.querySelector("#inbox-path-hint");
+    if (hint) hint.outerHTML = inboxPathHintHtml(inbox.value);
   });
   saveRemind?.addEventListener("click", async () => {
     await saveSettings(root, { remind_to: remindTo.value });
@@ -311,6 +315,48 @@ function lampsHtml(health) {
   }).join("");
 }
 
+function isOneDrivePath(path) {
+  return (path || "").toLowerCase().includes("onedrive");
+}
+
+function inboxPathHintHtml(path) {
+  if (isOneDrivePath(path)) {
+    return `<p class="col-hint" id="inbox-path-hint">Optagelser skal ligge i <strong>OneDrive</strong>. Det er et GDPR-krav. Dropbox og andre skyer må ikke bruges.</p>`;
+  }
+  return `<p class="col-hint is-warn" id="inbox-path-hint">Stien er ikke OneDrive. Optagelser <strong>skal</strong> ligge i OneDrive af hensyn til GDPR. Ret stien, så den peger på din OneDrive-mappe.</p>`;
+}
+
+function syncHelpHtml() {
+  return `
+    <section class="dash-card dash-help" aria-labelledby="sync-help-title">
+      <p class="dash-kicker">Fejlfinding</p>
+      <h2 id="sync-help-title">Optagelsen ligger i telefonen, men ikke på computeren</h2>
+      <p class="help-lead">Telefonen har ofte sat optageren eller OneDrive i dvale for at spare batteri. Så stopper synkroniseringen. Filen findes i appen, men kommer aldrig ind i mappen her.</p>
+      <p class="help-gdpr">Brug kun <strong>OneDrive</strong>. Det er et GDPR-krav. Andre skyer må ikke bruges.</p>
+      <div class="help-os">
+        <article>
+          <h3>Android</h3>
+          <p class="help-app">ASR Voice Recorder og OneDrive</p>
+          <ol>
+            <li>Indstillinger → Apps → <strong>ASR Voice Recorder</strong> → Batteri → vælg <strong>Ingen begrænsning</strong> (nogle telefoner siger Ubegrænset).</li>
+            <li>Gør det samme for <strong>OneDrive</strong>.</li>
+            <li>Åbn begge apps, og vent til filen vises i mappen på computeren.</li>
+          </ol>
+        </article>
+        <article>
+          <h3>iPhone</h3>
+          <p class="help-app">RecUp og OneDrive</p>
+          <ol>
+            <li>Indstillinger → Generelt → <strong>Baggrundsopdatering</strong>: slå til for RecUp og OneDrive.</li>
+            <li>Slå <strong>Lav strøm</strong> fra, mens du vil synke.</li>
+            <li>Åbn RecUp og OneDrive, og hold telefonen vågen på netværk et øjeblik.</li>
+          </ol>
+        </article>
+      </div>
+    </section>
+  `;
+}
+
 function selectedFolderHtml(settings) {
   if (!(settings.wrike_token_owner || settings.wrike_assignee_id)) {
     return "Indsæt Wrike-nøgler først.";
@@ -343,7 +389,7 @@ function wrikeKeysHtml(settings) {
   const ready = Boolean(settings.wrike_keys_ready);
   const owner = (settings.wrike_token_owner || "").trim();
   const status = owner
-    ? `<p class="col-hint" data-token-owner="${escapeAttr(owner)}">Wrike ser dig som <strong>${escapeHtml(owner)}</strong>. Er det en kollega, skal du lave din egen app og indsætte dine nøgler.</p>`
+    ? `<p class="col-hint" data-token-owner="${escapeAttr(owner)}">Wrike ser dig som <strong>${escapeHtml(owner)}</strong>. Hvis det ikke er dig, skal du lave din egen app i Wrike under Apps & Integrations, fanen API.</p>`
     : `<p class="col-hint">Hver person laver sin egen Wrike-app. Kopiér ikke nøglerne fra en kollega.</p>`;
   return `
     ${status}

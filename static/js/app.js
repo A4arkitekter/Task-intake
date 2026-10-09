@@ -1,6 +1,6 @@
-import { renderInbox } from "./inbox.js?v=14";
-import { renderCapture } from "./capture.js?v=14";
-import { ensureAuth } from "./login.js?v=14";
+import { renderInbox } from "./inbox.js?v=16";
+import { renderCapture } from "./capture.js?v=16";
+import { ensureAuth } from "./login.js?v=16";
 
 const root = document.querySelector("#app");
 
@@ -33,6 +33,6 @@ if ("serviceWorker" in navigator) {
     .then((regs) => Promise.all(regs.map((reg) => reg.unregister())))
     .then(() => caches.keys())
     .then((keys) => Promise.all(keys.map((key) => caches.delete(key))))
-    .then(() => navigator.serviceWorker.register("/sw.js?v=14"))
+    .then(() => navigator.serviceWorker.register("/sw.js?v=16"))
     .catch(() => {});
 }

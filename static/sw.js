@@ -1,4 +1,4 @@
-const CACHE = "intake-v14";
+const CACHE = "intake-v16";
 const PRECACHE = ["/static/brand/a4-logo.svg", "/static/icons/icon-192.png"];
 
 self.addEventListener("install", (event) => {
