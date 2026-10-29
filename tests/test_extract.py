@@ -13,7 +13,8 @@ os.environ["WHISPER_WARMUP"] = "0"
 os.environ["DATA_DIR"] = tempfile.mkdtemp(prefix="intake-extract-")
 
 from app.extract import extract_proposals, headline
-from app.rewrite import parse_card
+from app.pipeline import _proposals_from_transcript
+from app.rewrite import LONG_NOTE_PROMPT, SYSTEM_PROMPT, parse_card
 
 
 class ExtractTests(unittest.TestCase):
@@ -69,6 +70,28 @@ class ExtractTests(unittest.TestCase):
         self.assertEqual(len(cards), 1)
         self.assertEqual(cards[0]["title"], "Fremtidig affaldssortering i køkkenet")
         self.assertEqual(cards[0]["note"], "Vi skal fremover sortere vores affald i køkkenet.")
+
+
+class RewritePromptTests(unittest.TestCase):
+    def test_prompt_reconstructs_whisper_errors(self):
+        self.assertIn("Rekonstruér", SYSTEM_PROMPT)
+        self.assertIn("talegenkendelsesfejl", SYSTEM_PROMPT)
+        self.assertNotIn("Ret kun indlysende", SYSTEM_PROMPT)
+        self.assertIn("Whisper-fejl", LONG_NOTE_PROMPT)
+
+
+class PipelineGpuHandoffTests(unittest.TestCase):
+    def test_whisper_is_released_before_rewrite(self):
+        with (
+            patch("app.transcribe.release", return_value="cuda") as rel,
+            patch(
+                "app.pipeline.extract_proposals",
+                return_value=[{"title": "X", "note": "Y."}],
+            ),
+        ):
+            cards = _proposals_from_transcript("Vi skal sortere affald i købnet")
+        rel.assert_called_once()
+        self.assertEqual(cards[0]["title"], "X")
 
 
 class RewriteParseTests(unittest.TestCase):

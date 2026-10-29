@@ -14,9 +14,13 @@ from app.config import LLM_BASE_URL, LLM_KEEP_ALIVE, LLM_MODEL, LLM_TIMEOUT_SEC
 logger = logging.getLogger(__name__)
 
 SYSTEM_PROMPT = """\
-Du retter en dansk talegenkendelse og laver én opgave.
+Du retter en dansk talegenkendelse (Whisper) og laver én opgave.
 
 Svar KUN med JSON: {"title":"...","note":"..."}
+
+Teksten er automatisk transskription. Den har ofte forkerte ord, som lyder som det sagte
+(købnet→køkkenet, os→A4 OS, nedrører→vedrører). Rekonstruér det, personen mente, ud fra
+sammenhæng, fagudtryk og resten af sætningen. Gæt ikke på nye emner.
 
 Regler for title:
 - Kort overskrift, max 70 tegn
@@ -24,10 +28,11 @@ Regler for title:
 - ALDRIG start med "Jeg har en idé" og ALDRIG en afkortet rå transskript
 
 Regler for note:
-- 1-2 sætninger der gengiver det, personen faktisk sagde, på korrekt dansk
-- Ret kun indlysende talegenkendelsesfejl ud fra sammenhæng
+- 1-2 sætninger på korrekt dansk, som gengiver det der blev sagt
+- Ret talegenkendelsesfejl, når konteksten gør det rigtige ord klart
+- Bevar navne, tal, datoer og fagudtryk, når de er troværdige i sammenhængen
 - Fjern fyldord og indledninger
-- Opfind IKKE extra mål, kategorier, metoder eller facts
+- Opfind IKKE nye punkter, mål, kategorier eller facts, der ikke kan læses ud af teksten
 
 Eksempel:
 Tekst: Jeg har en idé, der handler om, at vi fremover os, skal sortere vores affald i købnet
@@ -36,16 +41,17 @@ Svar: {"title":"Fremtidig affaldssortering i køkkenet","note":"Vi skal fremover
 
 LONG_NOTE_PROMPT = """\
 Teksten er en lang indtaling. Note skal derfor være et referat på 3-10 sætninger.
-Bevar alle konkrete punkter, navne, tal og datoer. Udelad intet, du ikke selv ville
-kunne gætte. Title skal stadig være én kort overskrift for hele indtalingen.
+Ret Whisper-fejl ud fra sammenhæng. Bevar alle konkrete punkter, navne, tal og datoer.
+Udelad intet, du ikke selv ville kunne gætte. Title skal stadig være én kort overskrift
+for hele indtalingen.
 """
 
 # Over denne længde er en note på to sætninger et tab af information, ikke en oprydning.
 LONG_INPUT_CHARS = 800
 
-# Ollamas KV-cache vokser med num_ctx — omkring 0,2 MB per token for en 14b-model.
-# Et 12 GB kort, der også holder Whisper, kan ikke bære mere end dette.
-MAX_CONTEXT = 8192
+# Ollamas KV-cache vokser med num_ctx. Whisper er sluppet før omskrivning, så 14b
+# kan bruge et større vindue på et 16 GB-kort uden at dele plads med Whisper.
+MAX_CONTEXT = 16384
 # Det der er plads til i MAX_CONTEXT, når systemprompt og svar er trukket fra.
 MAX_TRANSCRIPT_CHARS = 20_000
 
@@ -134,7 +140,7 @@ def context_size(transcript: str) -> int:
     """Ollama afkorter prompten lydløst ved num_ctx, så en lang indtaling ville miste slutningen."""
     tokens = (len(SYSTEM_PROMPT) + len(LONG_NOTE_PROMPT) + len(transcript)) // 3
     needed = tokens + 1024
-    for size in (2048, 4096, MAX_CONTEXT):
+    for size in (2048, 4096, 8192, MAX_CONTEXT):
         if needed <= size:
             return size
     return MAX_CONTEXT

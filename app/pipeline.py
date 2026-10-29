@@ -160,6 +160,11 @@ def _proposals_from_transcript(transcript: str) -> list[dict[str, str]]:
                 "note": "Optagelsen var tom eller for stille. Smid væk eller optag igen.",
             }
         ]
+    from app.transcribe import release
+
+    freed = release()
+    if freed:
+        logger.info("Frigav Whisper fra %s før omskrivning", freed)
     proposals = extract_proposals(transcript)[:1]
     if proposals:
         return proposals
